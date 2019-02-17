@@ -19,13 +19,4 @@
     <ProjectReference Include="..\PGN\PGN.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>..\Newtonsoft.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="protobuf-net">
-      <HintPath>..\protobuf-net.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
 </Project>

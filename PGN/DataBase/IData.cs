@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace GameCore.Game
+namespace PGN.DataBase
 {
     public interface IData
     {

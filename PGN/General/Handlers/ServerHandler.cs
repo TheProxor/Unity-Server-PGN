@@ -12,6 +12,8 @@ using PGN.Data;
 using PGN.General.Connections;
 using PGN.Matchmaking;
 
+using Newtonsoft.Json;
+
 namespace PGN.General
 {
     public sealed class ServerHandler : Handler
@@ -24,8 +26,6 @@ namespace PGN.General
         public static Dictionary<string, List<Room>> freeRooms { get; private set; } = new Dictionary<string, List<Room>>();
         public static Dictionary<string, Room> rooms { get; private set; } = new Dictionary<string, Room>();
 
-        public static ServerHandler server;
-
         public static event Action<User> onUserConnectedTCP;
         public static event Action<User> onUserDisconnectedTCP;
 
@@ -37,12 +37,18 @@ namespace PGN.General
         private static TaskFactory taskFactoryTCP = new TaskFactory();
         private static TaskFactory taskFactoryUDP = new TaskFactory();
 
-        //DATABASE FUNCTIONS
-        public static Func<string, object> createUserBD;
-        public static Func<string, object> getInfoFromBD;
-
-        public ServerHandler() : base()
+        public ServerHandler(string databasePath, string attributesPath) : base()
         {
+            PGN.DataBase.MySqlHandler.Init(databasePath, attributesPath);
+
+            SynchronizableTypes.AddType(typeof(ValidateServerCall.Refresh),
+                (object data, string id) =>
+                {
+                    string callback = JsonConvert.SerializeObject(clients[id].info);
+                    SendMessageViaTCP(new NetData(new ValidateServerCall.Refresh(callback), false), clients[id]);
+                }
+                );
+
             SynchronizableTypes.AddType(typeof(MatchmakingServerCall.CreateRoom), 
                 (object data, string id) =>
                 {
@@ -50,6 +56,7 @@ namespace PGN.General
                     CreateRoom(clients[id], createRoom.roomFactors);
                 }
                 );
+
             SynchronizableTypes.AddType(typeof(MatchmakingServerCall.JoinToFreeRoom),
                   (object data, string id) =>
                   {
@@ -62,8 +69,6 @@ namespace PGN.General
           //  SynchronizableTypes.AddType(typeof(MatchmakingServerCall.LeaveFromRoom), 8, null);
           //  SynchronizableTypes.AddType(typeof(MatchmakingServerCall.GetRoomsList), 9, null);
 
-            SynchronizableTypes.AddSyncSubType(typeof(RoomCount));
-            SynchronizableTypes.AddSyncSubType(typeof(RoomMode));
         }
 
         internal static void OnUserConnectedTCP(User user)
@@ -132,17 +137,16 @@ namespace PGN.General
             ListenUDP();
         }
 
-        private void JoinToFreeRoom(User user, params IRoomFactor[] roomFactors)
+        private void JoinToFreeRoom(User user, params RoomFactor[] roomFactors)
         {
             string key = string.Empty;
-            foreach (IRoomFactor factor in roomFactors)
+            foreach (RoomFactor factor in roomFactors)
                 key += factor.GetFactorUssage();
 
+            user.currentRoom.LeaveFromRoom(user);
+
             if (freeRooms.ContainsKey(key))
-            {
-                user.currentRoom.LeaveFromRoom(user);
                 freeRooms[key][0].JoinToRoom(user);
-            }
             else
                 CreateRoom(user, key);
         }
@@ -156,22 +160,25 @@ namespace PGN.General
             freeRooms.Add(roomFactors, rooms);
         }
 
-        private void CreateRoom(User user, params IRoomFactor[] roomFactors)
+        private void CreateRoom(User user, params RoomFactor[] roomFactors)
         {
             string key = string.Empty;
-            RoomCount count = null;
-            RoomMode mode = null;
+            RoomFactor.RoomCount count = null;
+            RoomFactor.RoomMode mode = null;
+            RoomFactor.RoomMap map = null;
 
-            foreach (IRoomFactor factor in roomFactors)
+            foreach (RoomFactor factor in roomFactors)
             {
-                if (factor is RoomCount)
-                    count = factor as RoomCount;
-                else if (factor is RoomMode)
-                    mode = factor as RoomMode;
+                if (factor is RoomFactor.RoomCount)
+                    count = factor as RoomFactor.RoomCount;
+                else if (factor is RoomFactor.RoomMode)
+                    mode = factor as RoomFactor.RoomMode;
+                else if (factor is RoomFactor.RoomMap)
+                    map = factor as RoomFactor.RoomMap;
                 key += factor.GetFactorUssage();
             }
 
-            Room room = new Room(count, mode, key);
+            Room room = new Room(count, mode, map, key);
             room.JoinToRoom(user);
             List<Room> rooms = new List<Room>();
             rooms.Add(room);
@@ -234,9 +241,9 @@ namespace PGN.General
                     OnUserConnectedUDP(udpUser);
 
                     if (user.info == null)
-                        user.info = getInfoFromBD(message.senderID);
+                        user.info = PGN.DataBase.MySqlHandler.GetUserData(message.senderID);
                     if (user.info == null)
-                        user.info = createUserBD(message.senderID);
+                        user.info = PGN.DataBase.MySqlHandler.CreateUser(message.senderID);
                 }
                 SynchronizableTypes.InvokeTypeActionUDP(bytes[0], bytes, message, clients[message.senderID]);
             }

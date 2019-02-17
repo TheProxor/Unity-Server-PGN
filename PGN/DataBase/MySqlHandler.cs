@@ -11,10 +11,7 @@ using System.Data.SQLite;
 using PGN;
 using PGN.General;
 
-using GameCore;
-using GameCore.Game;
-
-namespace SocketServer.Database
+namespace PGN.DataBase
 {
     internal static class MySqlHandler
     {
@@ -24,12 +21,12 @@ namespace SocketServer.Database
         private static SQLiteConnection connection;
         private static SQLiteCommand command;
 
-        private static List<DataAttribute> datas;
+        private static List<DataProperty> datas;
 
         public static void Init(string path, string attributesPath)
         {
             command = new SQLiteCommand();
-            datas = new List<DataAttribute>();
+            datas = new List<DataProperty>();
 
             if (!File.Exists(path))
             {
@@ -68,10 +65,10 @@ namespace SocketServer.Database
                     {
                         switch (components[1])
                         {
-                            case "TEXT": datas.Add(new DataAttribute(components[0], components[2])); break;
-                            case "INT": datas.Add(new DataAttribute(components[0], int.Parse(components[2]))); break;
-                            case "FLOAT": datas.Add(new DataAttribute(components[0], float.Parse(components[2]))); break;
-                            case "DOUBLE": datas.Add(new DataAttribute(components[0], double.Parse(components[2]))); break;
+                            case "TEXT": datas.Add(new DataProperty(components[0], components[2])); break;
+                            case "INT": datas.Add(new DataProperty(components[0], int.Parse(components[2]))); break;
+                            case "FLOAT": datas.Add(new DataProperty(components[0], float.Parse(components[2]))); break;
+                            case "DOUBLE": datas.Add(new DataProperty(components[0], double.Parse(components[2]))); break;
                         }
                     }
                 }
@@ -91,7 +88,7 @@ namespace SocketServer.Database
                     {
                         info.id = reader.GetString(0);
                         for (int i = 1; i < datas.Count; i++)
-                            info.dataAttributes.Add(reader.GetName(i), new DataAttribute(reader.GetName(i), reader.GetValue(i)));
+                            info.dataAttributes.Add(reader.GetName(i), new DataProperty(reader.GetName(i), reader.GetValue(i)));
                     }
                     reader.Close();
                     return info;
@@ -125,7 +122,7 @@ namespace SocketServer.Database
                         UserInfo info = new UserInfo(datas.Count);
                         info.id = reader.GetString(0);
                         for (int k = 1; k < datas.Count; k++)
-                            info.dataAttributes.Add(reader.GetName(k), new DataAttribute(reader.GetName(k), reader.GetValue(k)));
+                            info.dataAttributes.Add(reader.GetName(k), new DataProperty(reader.GetName(k), reader.GetValue(k)));
                         users.Add(info);
                     }
                 }

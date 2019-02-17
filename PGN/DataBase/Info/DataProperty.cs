@@ -4,15 +4,20 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace GameCore.Game
+namespace PGN.DataBase
 {
     [Serializable]
-    public class DataAttribute : IData
+    public class DataProperty : IData
     {
         public string id;
         public object value;
 
-        public DataAttribute(string id, object value)
+        public DataProperty()
+        {
+
+        }
+
+        public DataProperty(string id, object value)
         {
             this.id = id;
             this.value = value;

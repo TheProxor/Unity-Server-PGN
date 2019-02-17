@@ -11,11 +11,8 @@ using System.Net.NetworkInformation;
 using PGN;
 using PGN.Data;
 using PGN.General;
-using SocketServer.Database;
 using GameCore;
 using GameCore.Commands;
-
-using Newtonsoft.Json;
 
 namespace SocketServer
 {
@@ -27,7 +24,7 @@ namespace SocketServer
 
         static void Main(string[] args)
         {
-            server = new ServerHandler();
+            server = new ServerHandler("Users.bd", "Attributes.config");
 
             ServerHandler.onLogReceived += (string log) => { Console.WriteLine(log); };
 
@@ -48,14 +45,8 @@ namespace SocketServer
 
             Console.WriteLine("Server IP: " + "127.0.0.1");
 
-            MySqlHandler.Init("Users.bd", "Attributes.config");
-            ServerHandler.createUserBD = MySqlHandler.CreateUser;
-            ServerHandler.getInfoFromBD = MySqlHandler.GetUserData;
-
             SynchronizableTypes.AddType(typeof(string), (object data, string senderID) => { Console.WriteLine($"{DateTime.Now.Minute}:{DateTime.Now.Second}:{DateTime.Now.Millisecond}"); Console.WriteLine($"{senderID}: {data as string}"); });
-            SynchronizableTypes.AddType(typeof(UserValidateCommand.Refresh), RefreshUser);
-            //SynchronizableTypes.AddType(typeof(UserValidateCommand.BuyCommand.BuyColor), 41, RefreshUser);
-
+   
             server.Start();
 
             Console.ReadLine();
@@ -63,10 +54,5 @@ namespace SocketServer
 
         
 
-        private static void RefreshUser(object data, string senderID)
-        {    
-            string callback = JsonConvert.SerializeObject(ServerHandler.clients[senderID].info);
-            server.SendMessageViaTCP(new NetData(new UserValidateCommand.Refresh(callback), serverUser.ID, false), ServerHandler.clients[senderID]);
-        }
     }
 }

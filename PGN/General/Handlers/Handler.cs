@@ -16,6 +16,7 @@ namespace PGN.General
         public Handler()
         {
             SynchronizableTypes.Init();
+           
         }
 
         public static event Action<string> onLogReceived;
@@ -28,7 +29,7 @@ namespace PGN.General
         protected static IPEndPoint remoteAddressTCP;
         protected static IPEndPoint remoteAddressUDP;
 
-        protected static User user;
+        internal static User user;
 
         public void SetLocalAdressTCP(string ip, int port)
         {

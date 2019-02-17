@@ -88,12 +88,87 @@ namespace PGN.Data
             this.broadcast = broadcast;
         }
 
+
+        public NetData(object data, bool broadcast)
+        {
+            if (data is ISync)
+                this.data = data as ISync;
+            else if (data is string)
+                this.data = new StringContainer(data as string);
+            else if (data is int)
+                this.data = new IntContainer((int)data);
+            else if (data is uint)
+                this.data = new UintContainer((uint)data);
+            else if (data is float)
+                this.data = new FloatContainer((float)data);
+            else if (data is double)
+                this.data = new DoubleContainer((double)data);
+            else
+            {
+                Handler.OnLogReceived("Your data is not supported!");
+                return;
+            }
+
+            this.senderID = Handler.user.ID;
+            this.broadcast = broadcast;
+        }
+
+        public NetData(string data, bool broadcast)
+        {
+            this.data = new StringContainer(data);
+            this.senderID = Handler.user.ID;
+            this.broadcast = broadcast;
+        }
+
+        public NetData(int data, bool broadcast)
+        {
+            this.data = new IntContainer(data);
+            this.senderID = Handler.user.ID;
+            this.broadcast = broadcast;
+        }
+
+        public NetData(uint data, bool broadcast)
+        {
+            this.data = new UintContainer(data);
+            this.senderID = Handler.user.ID;
+            this.broadcast = broadcast;
+        }
+
+        public NetData(float data, bool broadcast)
+        {
+            this.data = new FloatContainer(data);
+            this.senderID = Handler.user.ID;
+            this.broadcast = broadcast;
+        }
+
+        public NetData(double data, bool broadcast)
+        {
+            this.data = new DoubleContainer(data);
+            this.senderID = Handler.user.ID;
+            this.broadcast = broadcast;
+        }
+
+        public NetData(ISync data, bool broadcast)
+        {
+            this.data = data;
+            this.senderID = Handler.user.ID;
+            this.broadcast = broadcast;
+        }
+
         [ProtoMember(1)]
         public string senderID;
         [ProtoMember(2)]
         public ISync data;
         [ProtoMember(3)]
         internal bool broadcast;
+
+        public byte[] bytes
+        {
+            get
+            {
+                return GetBytesData(this);
+            }
+        }
 
         public static byte[] GetBytesData(NetData message)
         {

@@ -11,6 +11,8 @@ using System.IO;
 using PGN.Data;
 using PGN.Matchmaking;
 
+using Newtonsoft.Json;
+
 namespace PGN.General
 {
     public sealed class ClientHandler : Handler
@@ -64,18 +66,22 @@ namespace PGN.General
 
         private static Queue<PhantomMessage> messages = new Queue<PhantomMessage>();
 
+        public Action<DataBase.UserInfo> onRefreshed;
         public Action onJoinedToFreeRoom;
 
         public ClientHandler() : base()
         {
+            SynchronizableTypes.AddType(typeof(ValidateServerCall.Refresh), (object data, string id) => 
+            {
+                var refresh = data as ValidateServerCall.Refresh;
+                onRefreshed?.Invoke(JsonConvert.DeserializeObject<DataBase.UserInfo>(refresh.refreshData));
+            });
+
             SynchronizableTypes.AddType(typeof(MatchmakingServerCall.CreateRoom), null);
             SynchronizableTypes.AddType(typeof(MatchmakingServerCall.JoinToFreeRoom), (object data, string id) => { onJoinedToFreeRoom?.Invoke(); });
             SynchronizableTypes.AddType(typeof(MatchmakingServerCall.JoinToRoom), null);
             SynchronizableTypes.AddType(typeof(MatchmakingServerCall.LeaveFromRoom), null);
             SynchronizableTypes.AddType(typeof(MatchmakingServerCall.GetRoomsList), null);
-
-            SynchronizableTypes.AddSyncSubType(typeof(RoomCount));
-            SynchronizableTypes.AddSyncSubType(typeof(RoomMode));
         }
 
         /// <summary>
@@ -335,9 +341,14 @@ namespace PGN.General
         }
 
        
-        public void JoinToFreeRoom(params Matchmaking.IRoomFactor[] roomFactors)
+        public void Refresh()
         {
-            SendMessageTCP(new NetData(new MatchmakingServerCall.JoinToFreeRoom(roomFactors), user.ID, false));
+            SendMessageTCP(new NetData(new ValidateServerCall.Refresh(), false));
+        }
+
+        public void JoinToFreeRoom(params Matchmaking.RoomFactor[] roomFactors)
+        {
+            SendMessageTCP(new NetData(new MatchmakingServerCall.JoinToFreeRoom(roomFactors), false));
         }
 
         /// <summary>

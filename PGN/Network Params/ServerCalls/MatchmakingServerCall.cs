@@ -9,15 +9,15 @@ using ProtoBuf;
 namespace PGN
 {
     [Synchronizable, ProtoContract]
-    internal class MatchmakingServerCall : IServerCall
+    public class MatchmakingServerCall : IServerCall
     {
         [Synchronizable, ProtoContract]
-        internal class JoinToFreeRoom : MatchmakingServerCall
+        public class JoinToFreeRoom : MatchmakingServerCall
         {
             [ProtoMember(1)]
-            public IRoomFactor[] roomFactors;
+            public RoomFactor[] roomFactors;
 
-            public JoinToFreeRoom(params IRoomFactor[] roomFactors)
+            public JoinToFreeRoom(params RoomFactor[] roomFactors)
             {
                 this.roomFactors = roomFactors;
             }
@@ -29,12 +29,29 @@ namespace PGN
         }
 
         [Synchronizable, ProtoContract]
+        public class OnRoomReadyCallback : MatchmakingServerCall
+        {
+            [ProtoMember(1)]
+            public string opponentData;
+
+            public OnRoomReadyCallback(string opponentData)
+            {
+                this.opponentData = opponentData;
+            }
+
+            public OnRoomReadyCallback()
+            {
+
+            }
+        }
+
+        [Synchronizable, ProtoContract]
         internal class CreateRoom : MatchmakingServerCall
         {
             [ProtoMember(1)]
-            public IRoomFactor[] roomFactors;
+            public RoomFactor[] roomFactors;
 
-            public CreateRoom(params IRoomFactor[] roomFactors)
+            public CreateRoom(params RoomFactor[] roomFactors)
             {
                 this.roomFactors = roomFactors;
             }

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace GameCore
+namespace PGN.DataBase
 {
     [Serializable]
     public class UserInfo
@@ -13,12 +13,12 @@ namespace GameCore
 
         public string id { get; set; }
 
-        public Dictionary<string, GameCore.Game.DataAttribute> dataAttributes;
+        public Dictionary<string, DataProperty> dataAttributes;
 
         public UserInfo(int capacity)
         {
             this.id = string.Empty;
-            dataAttributes = new Dictionary<string, Game.DataAttribute>(capacity);
+            dataAttributes = new Dictionary<string, DataProperty>(capacity);
         }
 
         public string roomID = string.Empty;

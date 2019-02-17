@@ -49,11 +49,6 @@ namespace PGN.General.Connections
                             user = ServerHandler.clients[message.senderID];
                             user.tcpConnection = this;
                             ServerHandler.OnUserConnectedTCP(user);
-
-                            if (user.info == null)
-                                user.info = ServerHandler.getInfoFromBD(message.senderID);
-                            if (user.info == null)
-                                user.info = ServerHandler.createUserBD(message.senderID);
                         }
                     }
                     else
@@ -66,9 +61,9 @@ namespace PGN.General.Connections
                         ServerHandler.defaultRoom.JoinToRoom(user);
 
                         if (user.info == null)
-                            user.info = ServerHandler.getInfoFromBD(message.senderID);
+                            user.info = PGN.DataBase.MySqlHandler.GetUserData(message.senderID);
                         if (user.info == null)
-                            user.info = ServerHandler.createUserBD(message.senderID);
+                            user.info = PGN.DataBase.MySqlHandler.CreateUser(message.senderID);
                     }
 
                     SynchronizableTypes.InvokeTypeActionTCP(BitConverter.ToUInt16(bytes, 0), bytes, message, ServerHandler.clients[message.senderID]);

@@ -71,23 +71,6 @@ namespace GameCore.Commands
         }
 
         [Synchronizable, ProtoContract]
-        public class Refresh : UserValidateCommand
-        {
-            public Refresh()
-            {
-                this.refreshData = string.Empty;
-            }
-
-            public Refresh(string refreshData)
-            {
-                this.refreshData = refreshData;
-            }
-
-            [ProtoMember(1)]
-            public string refreshData;
-        }
-
-        [Synchronizable, ProtoContract]
         public class FindUser : UserValidateCommand
         {
             public FindUser(string userName)

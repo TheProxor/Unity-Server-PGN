@@ -29,6 +29,7 @@ namespace PGN
         {
             model = RuntimeTypeModel.Default;
             type = model.Add(typeof(ISync), true);
+            model.AllowParseableTypes = true;
 
             AddType(typeof(StringContainer), (object data, string senderID) => { if (typesDictionary.ContainsKey(typeof(string))) typesActions[typesDictionary[typeof(string)]].Invoke((data as StringContainer).value, senderID); });
             AddType(typeof(IntContainer), (object data, string senderID) => { if (typesDictionary.ContainsKey(typeof(int))) typesActions[typesDictionary[typeof(int)]].Invoke((data as IntContainer).value, senderID); });
@@ -74,20 +75,19 @@ namespace PGN
             if (t.IsDefined(typeof(SynchronizableAttribute), false))
             {
                 model.Add(t, true);
-                type.AddSubType(number + 1, t);
+                type.AddSubType(number, t);
             }
 
             typesDictionary.Add(t, number);
             types.Add(number, t);
             typesActions.Add(number, action);
         }
-        
+
 
         public static void AddSyncSubType(Type t)
         {
             model.Add(t, true);
-            ushort k = GetInt16HashCode(t.FullName);
-            type.AddSubType(k, t);
+            type.AddSubType(GetInt16HashCode(t.FullName), t);
         }
 
         public static ushort GetTypeID(Type type)
