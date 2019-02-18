@@ -20,7 +20,7 @@ namespace PGN
 
         internal static Dictionary<ushort, Action<object, string>> typesActions = new Dictionary<ushort, Action<object, string>>(ushort.MaxValue);
 
-        public static bool allowNonValidTypes = false;
+        public static bool allowNonValidTypes = true;
 
         private static RuntimeTypeModel model;
         private static MetaType type;
@@ -29,7 +29,6 @@ namespace PGN
         {
             model = RuntimeTypeModel.Default;
             type = model.Add(typeof(ISync), true);
-            model.AllowParseableTypes = true;
 
             AddType(typeof(StringContainer), (object data, string senderID) => { if (typesDictionary.ContainsKey(typeof(string))) typesActions[typesDictionary[typeof(string)]].Invoke((data as StringContainer).value, senderID); });
             AddType(typeof(IntContainer), (object data, string senderID) => { if (typesDictionary.ContainsKey(typeof(int))) typesActions[typesDictionary[typeof(int)]].Invoke((data as IntContainer).value, senderID); });
@@ -38,10 +37,12 @@ namespace PGN
             AddType(typeof(DoubleContainer), (object data, string senderID) => { if (typesDictionary.ContainsKey(typeof(double))) typesActions[typesDictionary[typeof(double)]].Invoke((data as DoubleContainer).value, senderID); });
         }
 
-        internal static void InvokeClientAction(byte[] message, ushort type, int bytesCount)
+        internal static void InvokeClientAction(byte[] message, int bytesCount)
         {
-            NetData data = NetData.RecoverBytes(message, bytesCount);
-            typesActions[type].Invoke(data.data, data.senderID);
+            ushort type;
+            NetData data = NetData.RecoverBytes(message, bytesCount, out type);
+            if (data != null)
+                typesActions[type].Invoke(data.data, data.senderID);
         }
 
         internal static void InvokeTypeActionTCP(ushort type, byte[] message, NetData data, User sender)
@@ -86,8 +87,11 @@ namespace PGN
 
         public static void AddSyncSubType(Type t)
         {
+            ushort number = GetInt16HashCode(t.FullName);
+            typesDictionary.Add(t, number);
+            types.Add(number, t);
             model.Add(t, true);
-            type.AddSubType(GetInt16HashCode(t.FullName), t);
+            type.AddSubType(number, t);
         }
 
         public static ushort GetTypeID(Type type)
@@ -95,9 +99,19 @@ namespace PGN
             return typesDictionary[type];
         }
 
-        public static Type GetTypeWithID(byte id)
+        public static Type GetTypeWithID(ushort id)
         {
             return types[id];
+        }
+
+        public static bool TypeExists(ushort type)
+        {
+            return types.ContainsKey(type);
+        }
+
+        public static bool TypeExists(Type type)
+        {
+            return typesDictionary.ContainsKey(type);
         }
 
         internal static ushort GetInt16HashCode(string source)

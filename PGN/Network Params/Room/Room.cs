@@ -33,7 +33,10 @@ namespace PGN.Matchmaking
         public Room(RoomFactor.RoomCount count, RoomFactor.RoomMode mode, RoomFactor.RoomMap map, string roomFactorKey)
         {
             this.roomFactorKey = roomFactorKey;
-            this.count = count;
+            if (count != null)
+                this.count = count;
+            else
+                this.count = new RoomFactor.RoomCount(uint.MaxValue);
             this.map = map;
             id = Guid.NewGuid().ToString();
             ServerHandler.rooms.Add(id, this);
@@ -50,7 +53,10 @@ namespace PGN.Matchmaking
                     if (participants.Count == count.count)
                     {
                         ServerHandler.freeRooms[roomFactorKey].Remove(this);
-                       // BroadcastMessageTCP(new NetData(MatchmakingServerCall.OnRoomReadyCallback(participants)))
+                        List<DataBase.UserInfo> userInfos = new List<DataBase.UserInfo>(participants.Count);
+                        foreach (string id in participants.Keys)
+                            userInfos.Add(participants[id].info);
+                        BroadcastMessageTCP(new NetData(new MatchmakingServerCall.OnRoomReadyCallback(JsonConvert.SerializeObject(userInfos.ToArray())), false).bytes);
                     }
                 }
             }
@@ -60,6 +66,9 @@ namespace PGN.Matchmaking
         {
             user.currentRoom = null;
             participants.Remove(user.ID);
+            BroadcastMessageTCP(new NetData(new MatchmakingServerCall.OnPlayerLeaveCallback(), user.ID, false).bytes);
+            if (participants.Count == 0)
+                ServerHandler.freeRooms[roomFactorKey].Add(this);
         }
 
         public void BroadcastMessageTCP(byte[] data, User sender)
@@ -75,6 +84,22 @@ namespace PGN.Matchmaking
         {
             foreach (string key in participants.Keys)
                 if (participants[key].ID != sender.ID && participants[key].udpConnection != null)
+                    participants[key].udpConnection.SendMessage(data);
+        }
+
+        public void BroadcastMessageTCP(byte[] data)
+        {
+            foreach (string key in participants.Keys)
+            {
+                if (participants[key].tcpConnection != null)
+                    participants[key].tcpConnection.SendMessage(data);
+            }
+        }
+
+        public void BroadcastMessageUDP(byte[] data)
+        {
+            foreach (string key in participants.Keys)
+                if (participants[key].udpConnection != null)
                     participants[key].udpConnection.SendMessage(data);
         }
     }

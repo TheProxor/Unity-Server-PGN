@@ -46,6 +46,24 @@ namespace PGN
         }
 
         [Synchronizable, ProtoContract]
+        public class OnPlayerLeaveCallback : MatchmakingServerCall
+        {
+            public OnPlayerLeaveCallback()
+            {
+
+            }
+        }
+
+        [Synchronizable, ProtoContract]
+        public class OnRoomRealeasedCallback : MatchmakingServerCall
+        {
+            public OnRoomRealeasedCallback()
+            {
+
+            }
+        }
+
+        [Synchronizable, ProtoContract]
         internal class CreateRoom : MatchmakingServerCall
         {
             [ProtoMember(1)]

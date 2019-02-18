@@ -13,8 +13,23 @@ namespace GameCore
     public class GameHandler
     {
         [Synchronizable, ProtoContract]
-        public class PlayerCondition
+        public class PlayerCondition : ISync
         {
+            public PlayerCondition()
+            {
+
+            }
+
+            public PlayerCondition(float posX, float posY, float posZ, float rotX, float rotY, float rotZ)
+            {
+                this.posX = posX;
+                this.posY = posY;
+                this.posZ = posZ;
+                this.rotX = rotX;
+                this.rotY = rotY;
+                this.rotZ = rotZ;
+            }
+
             [ProtoMember(1)]
             public float posX;
             [ProtoMember(2)]

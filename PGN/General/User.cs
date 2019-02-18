@@ -13,7 +13,7 @@ namespace PGN.General
     {     
         public string ID = string.Empty;
 
-        public object info;
+        public DataBase.UserInfo info;
 
         internal TcpConnection tcpConnection { get; set; }
         internal UdpConnection udpConnection { get; set; }

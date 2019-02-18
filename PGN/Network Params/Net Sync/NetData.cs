@@ -174,25 +174,47 @@ namespace PGN.Data
         {
             using (var memoryStream = new MemoryStream())
             {
-                Serializer.Serialize(memoryStream, message);
-                byte[] source = memoryStream.ToArray();
-                byte[] dest = new byte[source.Length + 2];
-                byte[] type = BitConverter.GetBytes(SynchronizableTypes.GetTypeID(message.data.GetType()));
-                dest[0] = type[0];
-                dest[1] = type[1];
-                for (int i = 2; i < dest.Length; i++)
-                    dest[i] = source[i - 2];
-                return dest;
+                ushort _type = SynchronizableTypes.GetTypeID(message.data.GetType());
+                if (SynchronizableTypes.TypeExists(_type))
+                {
+                    Serializer.NonGeneric.SerializeWithLengthPrefix(memoryStream, message, PrefixStyle.Base128, _type);
+                    byte[] source = memoryStream.ToArray();
+                    byte[] dest = new byte[source.Length + 2];
+                    byte[] type = BitConverter.GetBytes(_type);
+                    dest[0] = type[0];
+                    dest[1] = type[1];
+                    for (int i = 2; i < dest.Length; i++)
+                        dest[i] = source[i - 2];
+                    return dest;
+                }
+                else
+                    return null;
             }
         }
 
-        public static NetData RecoverBytes(byte[] bytesData, int bytesCount)
+        public static NetData RecoverBytes(byte[] bytesData, int bytesCount, out ushort type)
         {
-            byte[] bytes = new byte[bytesCount - 2];
-            for (int i = 0; i < bytesCount - 2; i++)
-                bytes[i] = bytesData[i + 2];
-            using (var memoryStream = new MemoryStream(bytes))
-                return (Serializer.Deserialize(typeof(NetData), memoryStream) as NetData);
+            ushort _type = type = BitConverter.ToUInt16(bytesData, 0);
+            if (bytesCount > 2 && SynchronizableTypes.TypeExists(type))
+            {
+                byte[] bytes = new byte[bytesCount - 2];
+                for (int i = 0; i < bytesCount - 2; i++)
+                    bytes[i] = bytesData[i + 2];
+
+                object message = null;
+                try
+                {
+                    using (var memoryStream = new MemoryStream(bytes))
+                        Serializer.NonGeneric.TryDeserializeWithLengthPrefix(memoryStream, PrefixStyle.Base128, filed => typeof(NetData), out message);
+                    return message as NetData;
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+            else
+                return null;
         }
 
         public static byte[] Compress(byte[] data, CompressionLevel compressionLevel)

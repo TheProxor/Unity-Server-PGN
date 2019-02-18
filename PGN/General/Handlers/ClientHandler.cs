@@ -66,8 +66,10 @@ namespace PGN.General
 
         private static Queue<PhantomMessage> messages = new Queue<PhantomMessage>();
 
-        public Action<DataBase.UserInfo> onRefreshed;
-        public Action onJoinedToFreeRoom;
+        public event Action<DataBase.UserInfo> onRefreshed;
+        public event Action<DataBase.UserInfo[]> onJoinedToFreeRoom;
+
+        public event Action<string> onUserLeaveRoom; 
 
         public ClientHandler() : base()
         {
@@ -77,11 +79,20 @@ namespace PGN.General
                 onRefreshed?.Invoke(JsonConvert.DeserializeObject<DataBase.UserInfo>(refresh.refreshData));
             });
 
-            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.CreateRoom), null);
-            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.JoinToFreeRoom), (object data, string id) => { onJoinedToFreeRoom?.Invoke(); });
-            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.JoinToRoom), null);
-            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.LeaveFromRoom), null);
-            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.GetRoomsList), null);
+            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.OnRoomReadyCallback), (object data, string id) => 
+            {
+                var ready = data as MatchmakingServerCall.OnRoomReadyCallback;
+                onJoinedToFreeRoom?.Invoke(JsonConvert.DeserializeObject<DataBase.UserInfo[]>(ready.opponentData));
+            });
+
+
+            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.OnPlayerLeaveCallback), (object data, string id) =>
+            {
+                onUserLeaveRoom?.Invoke(id);
+            });
+
+            SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.JoinToFreeRoom));
+            
         }
 
         /// <summary>
@@ -391,7 +402,7 @@ namespace PGN.General
                     while (messages.Count != 0)
                     {
                         PhantomMessage phantomMessage = messages.Dequeue();
-                        SynchronizableTypes.InvokeClientAction(phantomMessage.bytes, BitConverter.ToUInt16(phantomMessage.bytes, 0), phantomMessage.bytesCount);
+                        SynchronizableTypes.InvokeClientAction(phantomMessage.bytes, phantomMessage.bytesCount);
                     }
                 }
             }

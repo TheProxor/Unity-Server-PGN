@@ -45,8 +45,9 @@ namespace SocketServer
 
             Console.WriteLine("Server IP: " + "127.0.0.1");
 
-            SynchronizableTypes.AddType(typeof(string), (object data, string senderID) => { Console.WriteLine($"{DateTime.Now.Minute}:{DateTime.Now.Second}:{DateTime.Now.Millisecond}"); Console.WriteLine($"{senderID}: {data as string}"); });
-   
+            SynchronizableTypes.AddType(typeof(string), (object data, string senderID) => { ServerHandler.clients[senderID].currentRoom.BroadcastMessageTCP(new NetData(ServerHandler.clients[senderID].currentRoom.roomFactorKey, false).bytes); });
+            SynchronizableTypes.AddSyncSubType(typeof(GameHandler.PlayerCondition));
+
             server.Start();
 
             Console.ReadLine();

@@ -35,13 +35,13 @@ namespace PGN.General.Connections
         {
             do
             {
-                stream.Flush();
                 byte[] bytes = new byte[1024];
                 int bytesCount = stream.Read(bytes, 0, bytes.Length);
-                if (bytesCount > 1)
+                ushort type;
+                NetData message = NetData.RecoverBytes(bytes, bytesCount, out type);
+                if (message != null)
                 {
-                    NetData message = NetData.RecoverBytes(bytes, bytesCount);
-
+                    
                     if (ServerHandler.clients.ContainsKey(message.senderID))
                     {
                         if (ServerHandler.clients[message.senderID].tcpConnection == null)
@@ -66,7 +66,7 @@ namespace PGN.General.Connections
                             user.info = PGN.DataBase.MySqlHandler.CreateUser(message.senderID);
                     }
 
-                    SynchronizableTypes.InvokeTypeActionTCP(BitConverter.ToUInt16(bytes, 0), bytes, message, ServerHandler.clients[message.senderID]);
+                    SynchronizableTypes.InvokeTypeActionTCP(type, bytes, message, ServerHandler.clients[message.senderID]);
                 }
                 else
                 {
