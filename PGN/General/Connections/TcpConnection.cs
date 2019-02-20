@@ -10,7 +10,7 @@ namespace PGN.General.Connections
 {
     internal class TcpConnection : Connection
     {
-        private bool open;
+        internal bool open;
 
         protected internal NetworkStream stream { get; private set; }
 
@@ -70,6 +70,7 @@ namespace PGN.General.Connections
                 }
                 else
                 {
+                    open = false;
                     if (user != null)
                     {
                         ServerHandler.OnUserDisconnectedTCP(user);
@@ -77,7 +78,6 @@ namespace PGN.General.Connections
                         ServerHandler.RemoveConnection(user);
                     }
                     Close();
-                    open = false;
                     break;
                 }
             }

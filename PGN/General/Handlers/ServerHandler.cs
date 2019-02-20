@@ -22,6 +22,8 @@ namespace PGN.General
         internal static UdpClient udpListener;
 
         public static Dictionary<string, User> clients { get; private set; } = new Dictionary<string, User>();
+        internal static Dictionary<IPEndPoint, TcpConnection> tcpConnections = new Dictionary<IPEndPoint, TcpConnection>();
+        internal static Dictionary<IPEndPoint, UdpConnection> udpConnections = new Dictionary<IPEndPoint, UdpConnection>();
 
         public static Dictionary<string, List<Room>> freeRooms { get; private set; } = new Dictionary<string, List<Room>>();
         public static Dictionary<string, Room> rooms { get; private set; } = new Dictionary<string, Room>();
@@ -37,6 +39,9 @@ namespace PGN.General
         private static TaskFactory taskFactoryTCP = new TaskFactory();
         private static TaskFactory taskFactoryUDP = new TaskFactory();
 
+
+        public static event Action<bool, List<RoomFactor>, List<User>> onRoomReleased;
+
         public ServerHandler(string databasePath, string attributesPath) : base()
         {
             PGN.DataBase.MySqlHandler.Init(databasePath, attributesPath);
@@ -44,8 +49,7 @@ namespace PGN.General
             SynchronizableTypes.AddType(typeof(ValidateServerCall.Refresh),
                 (object data, string id) =>
                 {
-                    string callback = JsonConvert.SerializeObject(clients[id].info);
-                    SendMessageViaTCP(new NetData(new ValidateServerCall.Refresh(callback), false), clients[id]);
+                    SendMessageViaTCP(new NetData(new ValidateServerCall.Refresh(JsonConvert.SerializeObject(clients[id].info)), false), clients[id]);
                 }
                 );
 
@@ -65,11 +69,26 @@ namespace PGN.General
                   }
                 );
 
+            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.LeaveFromRoom),
+                  (object data, string id) =>
+                  {
+                      clients[id].currentRoom.LeaveFromRoom(clients[id]);
+                      defaultRoom.JoinToRoom(clients[id]);
+                  }
+                );
+
+            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.ReleaseRoom),
+                (object data, string id) =>
+                {
+                    clients[id].currentRoom.ReleaseRoom();
+                }
+              );
 
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.OnRoomReadyCallback));
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.OnPlayerLeaveCallback));
+            SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.OnRoomRealeasedCallback));
             //  SynchronizableTypes.AddType(typeof(MatchmakingServerCall.JoinToRoom), 7, null);
-            //  SynchronizableTypes.AddType(typeof(MatchmakingServerCall.LeaveFromRoom), 8, null);
+            //  
             //  SynchronizableTypes.AddType(typeof(MatchmakingServerCall.GetRoomsList), 9, null);
 
         }
@@ -109,6 +128,7 @@ namespace PGN.General
             {
                 if (clients.ContainsKey(client.ID))
                 {
+                    DataBase.MySqlHandler.SaveUserData(client);
                     client.currentRoom.LeaveFromRoom(client);
                     clients.Remove(client.ID);
                 }
@@ -133,6 +153,7 @@ namespace PGN.General
             OnLogReceived("Server was created.");
 
             defaultRoom = new Room("defaultRoomType");
+            defaultRoom.SetAsDefault();
             freeRooms.Add("defaultRoomType", new List<Room>(1));
             freeRooms["defaultRoomType"].Add(defaultRoom);
 
@@ -161,9 +182,21 @@ namespace PGN.General
             }
 
             if (freeRooms.ContainsKey(key))
-                freeRooms[key][0].JoinToRoom(user);
+            {
+                if (freeRooms[key].Count > 0)
+                    freeRooms[key][0].JoinToRoom(user);
+                else
+                    CreateRoom(user, key, count, mode, map, freeRooms[key]);
+            }
             else
                 CreateRoom(user, key, count, mode, map);
+        }
+
+        private void CreateRoom(User user, string roomFactorsKey, RoomFactor.RoomCount count, RoomFactor.RoomMode mode, RoomFactor.RoomMap map,  List<Room> rooms)
+        {
+            Room room = new Room(count, mode, map, roomFactorsKey);
+            room.JoinToRoom(user);
+            rooms.Add(room);
         }
 
         private void CreateRoom(User user, string roomFactorsKey, RoomFactor.RoomCount count, RoomFactor.RoomMode mode, RoomFactor.RoomMap map)
@@ -200,6 +233,11 @@ namespace PGN.General
             freeRooms.Add(key, rooms);
         }
 
+        internal static void ReleaseRoom(bool visable, List<RoomFactor> roomFactors, List<User> users)
+        {
+            onRoomReleased?.Invoke(visable, roomFactors, users);
+        }
+
         private void ListenTCP()
         {
             taskFactoryTCP.FromAsync(tcpListener.BeginAcceptTcpClient, tcpListener.EndAcceptTcpClient, tcpListener).ContinueWith(antecedent =>
@@ -208,60 +246,70 @@ namespace PGN.General
             });
         }
 
+
         private void ListenUDP()
         {
-            taskFactoryUDP.FromAsync(udpListener.BeginReceive, ReceiveCallback, udpListener).ContinueWith(antecedent =>
-            {
-                ListenUDP();
-            });
+            taskFactoryUDP.FromAsync(udpListener.BeginReceive, ReceiveCallback, udpListener);
         }
 
         internal void AcceptCallback(TcpClient tcpClient)
         {
             ListenTCP();
             TcpConnection tcpConnection = new TcpConnection(tcpClient, tcpClient.Client.RemoteEndPoint as IPEndPoint);
+            tcpConnections.Add(tcpConnection.adress, tcpConnection);
             tcpConnection.Recieve();
         }
 
+
         internal void ReceiveCallback(IAsyncResult ar)
         {
+            ListenUDP();
             IPEndPoint iPEndPoint = new IPEndPoint(IPAddress.Any, 8001);
             UdpClient udpClient = (ar.AsyncState as UdpClient);
-            byte[] bytes = udpClient.EndReceive(ar, ref iPEndPoint);
-
-            ushort type;
-            NetData message = NetData.RecoverBytes(bytes, bytes.Length, out type);
-            if (message != null)
+            byte[] bytes = null;
+            try
             {
-                User udpUser = null;
-
-                if (clients.ContainsKey(message.senderID))
+                bytes = udpClient.EndReceive(ar, ref iPEndPoint);
+            }
+            finally
+            {
+                if (bytes != null)
                 {
-                    if (clients[message.senderID].udpConnection == null)
+                    ushort type;
+                    NetData message = NetData.RecoverBytes(bytes, bytes.Length, out type);
+                    if (message != null)
                     {
-                        OnUserConnectedUDP(clients[message.senderID]);
-                        UdpConnection udpConnection = new UdpConnection(iPEndPoint);
-                        udpConnection.user = clients[message.senderID];
-                        clients[message.senderID].udpConnection = udpConnection;
+                        User udpUser = null;
+
+                        if (clients.ContainsKey(message.senderID))
+                        {
+                            if (clients[message.senderID].udpConnection == null)
+                            {
+                                OnUserConnectedUDP(clients[message.senderID]);
+                                UdpConnection udpConnection = new UdpConnection(iPEndPoint);
+                                udpConnection.user = clients[message.senderID];
+                                clients[message.senderID].udpConnection = udpConnection;
+                            }
+                            user = clients[message.senderID];
+                        }
+                        else
+                        {
+                            udpUser = new User(message.senderID);
+                            udpUser.udpConnection = new UdpConnection(iPEndPoint);
+                            AddConnection(udpUser);
+
+                            defaultRoom.JoinToRoom(udpUser);
+
+                            OnUserConnectedUDP(udpUser);
+
+                            if (user.info == null)
+                                user.info = PGN.DataBase.MySqlHandler.GetUserData(message.senderID);
+                            if (user.info == null)
+                                user.info = PGN.DataBase.MySqlHandler.CreateUser(message.senderID);
+                        }
+                        SynchronizableTypes.InvokeTypeActionUDP(type, bytes, message, clients[message.senderID]);
                     }
-                    user = clients[message.senderID];
                 }
-                else
-                {
-                    udpUser = new User(message.senderID);
-                    udpUser.udpConnection = new UdpConnection(iPEndPoint);
-                    AddConnection(udpUser);
-
-                    defaultRoom.JoinToRoom(udpUser);
-
-                    OnUserConnectedUDP(udpUser);
-
-                    if (user.info == null)
-                        user.info = PGN.DataBase.MySqlHandler.GetUserData(message.senderID);
-                    if (user.info == null)
-                        user.info = PGN.DataBase.MySqlHandler.CreateUser(message.senderID);
-                }
-                SynchronizableTypes.InvokeTypeActionUDP(type, bytes, message, clients[message.senderID]);
             }
         }
 

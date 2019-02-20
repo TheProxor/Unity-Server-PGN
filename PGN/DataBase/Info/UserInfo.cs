@@ -20,7 +20,5 @@ namespace PGN.DataBase
             this.id = string.Empty;
             dataAttributes = new Dictionary<string, DataProperty>(capacity);
         }
-
-        public string roomID = string.Empty;
     }
 }

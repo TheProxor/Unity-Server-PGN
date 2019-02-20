@@ -69,12 +69,14 @@ namespace PGN.General
         public event Action<DataBase.UserInfo> onRefreshed;
         public event Action<DataBase.UserInfo[]> onJoinedToFreeRoom;
 
-        public event Action<string> onUserLeaveRoom; 
+        public event Action<string> onUserLeaveRoom;
+        public event Action onRoomReleased;
 
         public ClientHandler() : base()
         {
             SynchronizableTypes.AddType(typeof(ValidateServerCall.Refresh), (object data, string id) => 
             {
+                OnLogReceived("Refreshed");
                 var refresh = data as ValidateServerCall.Refresh;
                 onRefreshed?.Invoke(JsonConvert.DeserializeObject<DataBase.UserInfo>(refresh.refreshData));
             });
@@ -91,8 +93,14 @@ namespace PGN.General
                 onUserLeaveRoom?.Invoke(id);
             });
 
+            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.OnRoomRealeasedCallback), (object data, string id) =>
+            {
+                onRoomReleased?.Invoke();
+            });
+
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.JoinToFreeRoom));
-            
+            SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.LeaveFromRoom));
+            SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.ReleaseRoom));
         }
 
         /// <summary>
@@ -170,50 +178,28 @@ namespace PGN.General
         /// </summary>
         public void ReceiveMessageTCP()
         {
-            byte[] bytes = new byte[1024];
-            try
-            {
-                stream.BeginRead(bytes, 0, bytes.Length, new AsyncCallback(ReceiveMessageTCPCallback), bytes);
-            }
-            catch (Exception e)
-            {
-                if (stream != null)
-                {
-                    stream.Flush();
-                    stream.Dispose();
-                    stream = null;
-                }
-
-                if (tcpClient != null)
-                {
-                    tcpClient.Client.Close();
-                    tcpClient.Dispose();
-                    tcpClient = null;
-                }
-
-                if (udpClient != null)
-                {
-                    udpClient.Dispose();
-                    udpClient = null;
-                }
-
-                onConnectionLostCondition = true;
-            }
+            System.Threading.Tasks.Task.Factory.StartNew(ReceiveMessageTCPCallback);
         }
 
-        private void ReceiveMessageTCPCallback(IAsyncResult ar)
+        private void ReceiveMessageTCPCallback()
         {
-            ReceiveMessageTCP();
             try
             {
-                int bytesCount = stream.EndRead(ar);
-                if (bytesCount > 0)
+                while (true)
                 {
-                    byte[] bytes = ar.AsyncState as byte[];
-                    lock (messages)
+                    do
                     {
-                        messages.Enqueue(new PhantomMessage(bytes, bytesCount));
+                        byte[] bytes = new byte[1024];
+                        int bytesCount = stream.Read(bytes, 0, bytes.Length);
+                        if (bytesCount > 0)
+                        {
+                            lock (messages)
+                            {
+                                messages.Enqueue(new PhantomMessage(bytes, bytesCount));
+                            }
+                        }
                     }
+                    while (stream.DataAvailable);
                 }
             }
             catch (Exception e)
@@ -247,45 +233,20 @@ namespace PGN.General
         /// </summary>
         public void ReceiveMessageUDP()
         {
-            try
-            {
-                udpClient.BeginReceive(new AsyncCallback(ReceiveMessageUDPCallback), udpClient);
-            }
-            catch (Exception e)
-            {
-                if (stream != null)
-                {
-                    stream.Flush();
-                    stream.Dispose();
-                    stream = null;
-                }
-
-                if (tcpClient != null)
-                {
-                    tcpClient.Dispose();
-                    tcpClient = null;
-                }
-
-                if (udpClient != null)
-                {
-                    udpClient.Dispose();
-                    udpClient = null;
-                }
-
-
-                onConnectionLostCondition = true;
-            }
+            System.Threading.Tasks.Task.Factory.StartNew(ReceiveMessageUDPCallback);
         }
 
-        private void ReceiveMessageUDPCallback(IAsyncResult ar)
+        private void ReceiveMessageUDPCallback()
         {
-            ReceiveMessageUDP();
             try
             {
-                byte[] bytes = udpClient.EndReceive(ar, ref remoteAddressUDP);
-                lock (messages)
+                while (true)
                 {
-                    messages.Enqueue(new PhantomMessage(bytes, bytes.Length));
+                    byte[] bytes = udpClient.Receive(ref remoteAddressUDP);
+                    lock (messages)
+                    {
+                        messages.Enqueue(new PhantomMessage(bytes, bytes.Length));
+                    }
                 }
             }
             catch
@@ -356,10 +317,22 @@ namespace PGN.General
         {
             SendMessageTCP(new NetData(new ValidateServerCall.Refresh(), false));
         }
-
+        
         public void JoinToFreeRoom(params Matchmaking.RoomFactor[] roomFactors)
         {
             SendMessageTCP(new NetData(new MatchmakingServerCall.JoinToFreeRoom(roomFactors), false));
+        }
+
+
+        public void LeaveFromRoom()
+        {
+            SendMessageTCP(new NetData(new MatchmakingServerCall.LeaveFromRoom(), false));
+        }
+
+        
+        public void ReleaseRoom()
+        {
+            SendMessageTCP(new NetData(new MatchmakingServerCall.ReleaseRoom(), false));
         }
 
         /// <summary>

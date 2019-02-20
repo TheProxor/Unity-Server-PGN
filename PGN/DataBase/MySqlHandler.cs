@@ -54,7 +54,7 @@ namespace PGN.DataBase
                     string[] components = line.Split(' ');
                     try
                     {
-                        command.CommandText = $"ALTER TABLE {dbName} ADD COLUMN {components[0]} {components[1]};";
+                        command = new  SQLiteCommand( $"ALTER TABLE {dbName} ADD COLUMN {components[0]} {components[1]};", connection);
                         command.ExecuteNonQuery();
                     }
                     catch
@@ -87,8 +87,19 @@ namespace PGN.DataBase
                     while (reader.Read())
                     {
                         info.id = reader.GetString(0);
-                        for (int i = 1; i < datas.Count; i++)
-                            info.dataAttributes.Add(reader.GetName(i), new DataProperty(reader.GetName(i), reader.GetValue(i)));
+                        for (int i = 0; i < datas.Count; i++)
+                        {
+                            string name = reader.GetName(i + 1);
+                            object value = reader.GetValue(i + 1);
+                            if (datas[i].value is string)
+                                info.dataAttributes.Add(name, new DataProperty(name, value.ToString()));
+                            else if(datas[i].value is int)
+                                info.dataAttributes.Add(name, new DataProperty(name, Convert.ToInt32(value)));
+                            else if (datas[i].value is float)
+                                info.dataAttributes.Add(name, new DataProperty(name, Convert.ToSingle(value)));
+                            else if (datas[i].value is double)
+                                info.dataAttributes.Add(name, new DataProperty(name, Convert.ToDouble(value)));
+                        }
                     }
                     reader.Close();
                     return info;
@@ -137,7 +148,17 @@ namespace PGN.DataBase
 
         public static void SetUserData(string id, string param, object value)
         {
-            command.CommandText = string.Format("UPDATE 'Users' SET {0} = '{1}' WHERE id = '{2}';", param, value, id);
+            command = new SQLiteCommand( $"UPDATE '{dbName}' SET '{param}' = '{value}' WHERE id = '{id}';", connection);
+            command.ExecuteNonQuery();
+        }
+
+        public static void SaveUserData(User user)
+        {
+            string fields = string.Empty;
+            for (int i = 0; i < datas.Count; i++)
+                fields += $",'{datas[i].id}' = '{user.info.dataAttributes[datas[i].id].value}'";
+
+            command = new SQLiteCommand($"UPDATE '{dbName}' SET '{datas[0].id}' = '{user.info.dataAttributes[datas[0].id].value}'{fields} WHERE id = '{user.ID}';", connection);
             command.ExecuteNonQuery();
         }
 
@@ -152,10 +173,10 @@ namespace PGN.DataBase
             {
                 fields += $",'{datas[i].id}'";
                 values += $",'{datas[i].value}'";
-                info.dataAttributes.Add(datas[i].id, datas[i]);
+                info.dataAttributes.Add(datas[i].id, new DataProperty(datas[i].id, datas[i].value));
             }
 
-            command.CommandText = $"INSERT INTO {dbName} ('id'{fields}) VALUES ('{userID}'{values});";
+            command = new SQLiteCommand($"INSERT INTO {dbName} ('id'{fields}) VALUES ('{userID}'{values});", connection);
             command.ExecuteNonQuery();
 
             return info;

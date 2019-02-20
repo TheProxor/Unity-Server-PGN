@@ -20,6 +20,8 @@ namespace PGN
 
         internal static Dictionary<ushort, Action<object, string>> typesActions = new Dictionary<ushort, Action<object, string>>(ushort.MaxValue);
 
+        internal static Action<object, string>[] tst = new Action<object, string>[ushort.MaxValue];
+
         public static bool allowNonValidTypes = true;
 
         private static RuntimeTypeModel model;

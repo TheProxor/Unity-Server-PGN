@@ -55,6 +55,15 @@ namespace PGN
         }
 
         [Synchronizable, ProtoContract]
+        public class ReleaseRoom : MatchmakingServerCall
+        {
+            public ReleaseRoom()
+            {
+
+            }
+        }
+
+        [Synchronizable, ProtoContract]
         public class OnRoomRealeasedCallback : MatchmakingServerCall
         {
             public OnRoomRealeasedCallback()
@@ -112,7 +121,32 @@ namespace PGN
         [Synchronizable, ProtoContract]
         internal class GetRoomsList : MatchmakingServerCall
         {
+            [ProtoMember(1)]
+            public RoomFactor[] roomFactors;
+
+            public GetRoomsList(params RoomFactor[] roomFactors)
+            {
+                this.roomFactors = roomFactors;
+            }
+
             public GetRoomsList()
+            {
+
+            }
+        }
+
+        [Synchronizable, ProtoContract]
+        internal class FreeRoomsListCallback : MatchmakingServerCall
+        {
+            [ProtoMember(1)]
+            public string roomsData;
+
+            public FreeRoomsListCallback(string roomsData)
+            {
+                this.roomsData = roomsData;
+            }
+
+            public FreeRoomsListCallback()
             {
 
             }

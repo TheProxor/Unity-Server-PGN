@@ -14,7 +14,7 @@ namespace PGN.DataBase
 
         public DataProperty()
         {
-
+            
         }
 
         public DataProperty(string id, object value)

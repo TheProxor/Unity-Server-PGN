@@ -38,6 +38,8 @@ namespace SocketServer
             ServerHandler.onUserConnectedUDP += (User user) => {  Console.WriteLine($"User {user.ID} was connected via UDP"); };
             ServerHandler.onUserDisconnectedUDP += (User user) => {  Console.WriteLine($"User {user.ID} was disconnected via UDP"); };
 
+            ServerHandler.onRoomReleased += ReleaseRoomCallback;
+
             //server.SetLocalAdressTCP("192.168.0.1", 8000);
            // server.SetLocalAdressUDP("192.168.0.1", 8001);
             server.SetLocalAdressTCP("127.0.0.1", 8000);
@@ -53,7 +55,38 @@ namespace SocketServer
             Console.ReadLine();
         }
 
-        
+        public static void ReleaseRoomCallback(bool visable, List<PGN.Matchmaking.RoomFactor> roomFactors, List<User> users)
+        {
+            if(!visable)
+            {
+                foreach(PGN.Matchmaking.RoomFactor roomFactor in roomFactors)
+                {
+                    if (roomFactor is PGN.Matchmaking.RoomFactor.RoomMode)
+                    {
+                        var roomMode = roomFactor as PGN.Matchmaking.RoomFactor.RoomMode;
+                        switch (roomMode.mode)
+                        {
+                            case "Default":
+                                foreach (User user in users)
+                                {
+                                    user.info.dataAttributes["cubecoins"].value = (int)user.info.dataAttributes["cubecoins"].value + 100;
+                                    user.info.dataAttributes["experience"].value = Convert.ToSingle(user.info.dataAttributes["experience"].value) + Convert.ToSingle(100f / (int)user.info.dataAttributes["level"].value);
+                                    if (Convert.ToSingle(user.info.dataAttributes["experience"].value) >= 100f)
+                                    {
+                                        user.info.dataAttributes["experience"].value = 0f;
+                                        user.info.dataAttributes["level"].value = (int)user.info.dataAttributes["level"].value + 1;
+                                    }
+                                }
+                                break;
+                    }
+                    }
+                }
+            }
+            else
+            {
+
+            }
+        }
 
     }
 }

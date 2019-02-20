@@ -14,14 +14,26 @@ namespace PGN.Matchmaking
 {
     public class Room
     {
+        public static Room defaultRoom;
+
         public string id;
         public string roomFactorKey;
 
-        public RoomFactor.RoomMode roomMode;
+        public RoomFactor.RoomMode mode;
         public RoomFactor.RoomCount count = new RoomFactor.RoomCount(uint.MaxValue);
         public RoomFactor.RoomMap map;
 
         public Dictionary<string, User> participants { get; private set; } = new Dictionary<string, User>();
+
+        public bool visable { get; internal set; } = false;
+
+        private bool isDefault;
+
+        public void SetAsDefault()
+        {
+            isDefault = true;
+            defaultRoom = this;
+        }
 
         public Room(string roomFactorKey)
         {
@@ -38,6 +50,7 @@ namespace PGN.Matchmaking
             else
                 this.count = new RoomFactor.RoomCount(uint.MaxValue);
             this.map = map;
+            this.mode = mode;
             id = Guid.NewGuid().ToString();
             ServerHandler.rooms.Add(id, this);
         }
@@ -50,7 +63,7 @@ namespace PGN.Matchmaking
                 {
                     participants.Add(user.ID, user);
                     user.currentRoom = this;
-                    if (participants.Count == count.count)
+                    if (participants.Count == count.count && !isDefault)
                     {
                         ServerHandler.freeRooms[roomFactorKey].Remove(this);
                         List<DataBase.UserInfo> userInfos = new List<DataBase.UserInfo>(participants.Count);
@@ -64,11 +77,49 @@ namespace PGN.Matchmaking
 
         public void LeaveFromRoom(User user)
         {
-            user.currentRoom = null;
-            participants.Remove(user.ID);
-            BroadcastMessageTCP(new NetData(new MatchmakingServerCall.OnPlayerLeaveCallback(), user.ID, false).bytes);
-            if (participants.Count == 0)
-                ServerHandler.freeRooms[roomFactorKey].Add(this);
+            lock (participants)
+            {
+                participants.Remove(user.ID);
+                if (!isDefault)
+                {
+                    user.currentRoom = defaultRoom;
+                    BroadcastMessageTCP(new NetData(new MatchmakingServerCall.OnPlayerLeaveCallback(), user.ID, false).bytes);
+                    if (participants.Count == 1)
+                        ReleaseRoom();
+                    else if (participants.Count == 0)
+                        ServerHandler.freeRooms[roomFactorKey].Add(this);
+                }
+            }
+        }
+
+        public void ReleaseRoom()
+        {
+            lock (participants)
+            {
+                if (!isDefault)
+                {
+                    List<RoomFactor> roomFactors = new List<RoomFactor>();
+
+                    if (count != null)
+                        roomFactors.Add(count);
+                    if (mode != null)
+                        roomFactors.Add(mode);
+                    if (map != null)
+                        roomFactors.Add(map);
+
+                    if (roomFactors.Count > 0)
+                        ServerHandler.ReleaseRoom(visable, roomFactors, new List<User>(participants.Values));
+
+                    foreach (string key in participants.Keys)
+                    {
+                        participants[key].tcpConnection.SendMessage(new NetData(new ValidateServerCall.Refresh(JsonConvert.SerializeObject(participants[key].info)), false).bytes);
+                        participants[key].tcpConnection.SendMessage(new NetData(new MatchmakingServerCall.OnRoomRealeasedCallback(), false).bytes);
+                        participants[key].currentRoom = defaultRoom;
+                    }
+                    participants.Clear();
+                    ServerHandler.freeRooms[roomFactorKey].Add(this);
+                }
+            }
         }
 
         public void BroadcastMessageTCP(byte[] data, User sender)
