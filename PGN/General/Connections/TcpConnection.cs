@@ -61,9 +61,9 @@ namespace PGN.General.Connections
                         ServerHandler.defaultRoom.JoinToRoom(user);
 
                         if (user.info == null)
-                            user.info = PGN.DataBase.MySqlHandler.GetUserData(message.senderID);
+                            user.info = ServerHandler.DataBaseBehaivour.GetUserData(message.senderID);
                         if (user.info == null)
-                            user.info = PGN.DataBase.MySqlHandler.CreateUser(message.senderID);
+                            user.info = ServerHandler.DataBaseBehaivour.CreateUser(message.senderID);
                     }
 
                     SynchronizableTypes.InvokeTypeActionTCP(type, bytes, message, ServerHandler.clients[message.senderID]);

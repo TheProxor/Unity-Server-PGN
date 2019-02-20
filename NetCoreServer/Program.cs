@@ -24,7 +24,7 @@ namespace SocketServer
 
         static void Main(string[] args)
         {
-            server = new ServerHandler("Users.bd", "Attributes.config");
+            server = new ServerHandler("Users.bd", "Attributes.config", new PGN.DataBase.SQLiteBehaivour());
 
             ServerHandler.onLogReceived += (string log) => { Console.WriteLine(log); };
 

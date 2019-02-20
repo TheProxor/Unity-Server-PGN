@@ -12,8 +12,6 @@ using PGN.Data;
 using PGN.General.Connections;
 using PGN.Matchmaking;
 
-using Newtonsoft.Json;
-
 namespace PGN.General
 {
     public sealed class ServerHandler : Handler
@@ -22,8 +20,6 @@ namespace PGN.General
         internal static UdpClient udpListener;
 
         public static Dictionary<string, User> clients { get; private set; } = new Dictionary<string, User>();
-        internal static Dictionary<IPEndPoint, TcpConnection> tcpConnections = new Dictionary<IPEndPoint, TcpConnection>();
-        internal static Dictionary<IPEndPoint, UdpConnection> udpConnections = new Dictionary<IPEndPoint, UdpConnection>();
 
         public static Dictionary<string, List<Room>> freeRooms { get; private set; } = new Dictionary<string, List<Room>>();
         public static Dictionary<string, Room> rooms { get; private set; } = new Dictionary<string, Room>();
@@ -39,17 +35,20 @@ namespace PGN.General
         private static TaskFactory taskFactoryTCP = new TaskFactory();
         private static TaskFactory taskFactoryUDP = new TaskFactory();
 
+        internal static DataBase.DataBaseBehaivour DataBaseBehaivour;
 
         public static event Action<bool, List<RoomFactor>, List<User>> onRoomReleased;
 
-        public ServerHandler(string databasePath, string attributesPath) : base()
+        public ServerHandler(string databasePath, string attributesPath, DataBase.DataBaseBehaivour dataBaseBehaivour) : base()
         {
-            PGN.DataBase.MySqlHandler.Init(databasePath, attributesPath);
+            DataBaseBehaivour = dataBaseBehaivour;
+            dataBaseBehaivour.Init(databasePath, attributesPath);
 
             SynchronizableTypes.AddType(typeof(ValidateServerCall.Refresh),
                 (object data, string id) =>
                 {
-                    SendMessageViaTCP(new NetData(new ValidateServerCall.Refresh(JsonConvert.SerializeObject(clients[id].info)), false), clients[id]);
+                    byte[] bytes = clients[id].info.bytes;
+                    SendMessageViaTCP(new NetData(new ValidateServerCall.Refresh(bytes), false), clients[id]);
                 }
                 );
 
@@ -128,7 +127,7 @@ namespace PGN.General
             {
                 if (clients.ContainsKey(client.ID))
                 {
-                    DataBase.MySqlHandler.SaveUserData(client);
+                    DataBaseBehaivour.SaveUserData(client);
                     client.currentRoom.LeaveFromRoom(client);
                     clients.Remove(client.ID);
                 }
@@ -256,7 +255,6 @@ namespace PGN.General
         {
             ListenTCP();
             TcpConnection tcpConnection = new TcpConnection(tcpClient, tcpClient.Client.RemoteEndPoint as IPEndPoint);
-            tcpConnections.Add(tcpConnection.adress, tcpConnection);
             tcpConnection.Recieve();
         }
 
@@ -271,6 +269,7 @@ namespace PGN.General
             {
                 bytes = udpClient.EndReceive(ar, ref iPEndPoint);
             }
+            catch { }
             finally
             {
                 if (bytes != null)
@@ -303,9 +302,9 @@ namespace PGN.General
                             OnUserConnectedUDP(udpUser);
 
                             if (user.info == null)
-                                user.info = PGN.DataBase.MySqlHandler.GetUserData(message.senderID);
+                                user.info = DataBaseBehaivour.GetUserData(message.senderID);
                             if (user.info == null)
-                                user.info = PGN.DataBase.MySqlHandler.CreateUser(message.senderID);
+                                user.info = DataBaseBehaivour.CreateUser(message.senderID);
                         }
                         SynchronizableTypes.InvokeTypeActionUDP(type, bytes, message, clients[message.senderID]);
                     }

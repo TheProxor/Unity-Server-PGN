@@ -8,8 +8,6 @@ using PGN.Data;
 using PGN.General;
 using PGN.General.Connections;
 
-using Newtonsoft.Json;
-
 namespace PGN.Matchmaking
 {
     public class Room
@@ -69,7 +67,7 @@ namespace PGN.Matchmaking
                         List<DataBase.UserInfo> userInfos = new List<DataBase.UserInfo>(participants.Count);
                         foreach (string id in participants.Keys)
                             userInfos.Add(participants[id].info);
-                        BroadcastMessageTCP(new NetData(new MatchmakingServerCall.OnRoomReadyCallback(JsonConvert.SerializeObject(userInfos.ToArray())), false).bytes);
+                        BroadcastMessageTCP(new NetData(new MatchmakingServerCall.OnRoomReadyCallback(DataBase.UserInfo.GetUserInfoArrayBytes(userInfos.ToArray())), false).bytes);
                     }
                 }
             }
@@ -112,7 +110,7 @@ namespace PGN.Matchmaking
 
                     foreach (string key in participants.Keys)
                     {
-                        participants[key].tcpConnection.SendMessage(new NetData(new ValidateServerCall.Refresh(JsonConvert.SerializeObject(participants[key].info)), false).bytes);
+                        participants[key].tcpConnection.SendMessage(new NetData(new ValidateServerCall.Refresh(participants[key].info.bytes), false).bytes);
                         participants[key].tcpConnection.SendMessage(new NetData(new MatchmakingServerCall.OnRoomRealeasedCallback(), false).bytes);
                         participants[key].currentRoom = defaultRoom;
                     }

@@ -14,16 +14,16 @@ namespace PGN
         {
             public Refresh()
             {
-                this.refreshData = string.Empty;
+                this.refreshData = new byte[0];
             }
 
-            public Refresh(string refreshData)
+            public Refresh(byte[] refreshData)
             {
                 this.refreshData = refreshData;
             }
 
             [ProtoMember(1)]
-            public string refreshData;
+            public byte[] refreshData = new byte[0];
         }
 
     }

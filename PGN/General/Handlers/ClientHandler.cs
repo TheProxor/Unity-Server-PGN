@@ -11,8 +11,6 @@ using System.IO;
 using PGN.Data;
 using PGN.Matchmaking;
 
-using Newtonsoft.Json;
-
 namespace PGN.General
 {
     public sealed class ClientHandler : Handler
@@ -78,13 +76,13 @@ namespace PGN.General
             {
                 OnLogReceived("Refreshed");
                 var refresh = data as ValidateServerCall.Refresh;
-                onRefreshed?.Invoke(JsonConvert.DeserializeObject<DataBase.UserInfo>(refresh.refreshData));
+                onRefreshed?.Invoke(DataBase.UserInfo.RecoverBytes(refresh.refreshData));
             });
 
             SynchronizableTypes.AddType(typeof(MatchmakingServerCall.OnRoomReadyCallback), (object data, string id) => 
             {
                 var ready = data as MatchmakingServerCall.OnRoomReadyCallback;
-                onJoinedToFreeRoom?.Invoke(JsonConvert.DeserializeObject<DataBase.UserInfo[]>(ready.opponentData));
+                onJoinedToFreeRoom?.Invoke(DataBase.UserInfo.RecoverArrayBytes(ready.opponentData));
             });
 
 
@@ -189,7 +187,7 @@ namespace PGN.General
                 {
                     do
                     {
-                        byte[] bytes = new byte[1024];
+                        byte[] bytes = new byte[10240];
                         int bytesCount = stream.Read(bytes, 0, bytes.Length);
                         if (bytesCount > 0)
                         {
