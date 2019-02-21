@@ -10,8 +10,6 @@ namespace PGN.General.Connections
 {
     internal class TcpConnection : Connection
     {
-        internal bool open;
-
         protected internal NetworkStream stream { get; private set; }
 
         public TcpClient tcpClient;
@@ -22,12 +20,11 @@ namespace PGN.General.Connections
         {
             this.tcpClient = tcpClient;
             stream = tcpClient.GetStream();
-            open = true;
         }
 
         public void Recieve()
         {
-            while(open)
+            while(stream.CanRead)
                 GetMessage();
         }
 
@@ -36,41 +33,15 @@ namespace PGN.General.Connections
             do
             {
                 byte[] bytes = new byte[1024];
-                int bytesCount = stream.Read(bytes, 0, bytes.Length);
-                ushort type;
-                NetData message = NetData.RecoverBytes(bytes, bytesCount, out type);
-                if (message != null)
+                int bytesCount = 0;
+                try
                 {
-                    
-                    if (ServerHandler.clients.ContainsKey(message.senderID))
-                    {
-                        if (ServerHandler.clients[message.senderID].tcpConnection == null)
-                        {
-                            user = ServerHandler.clients[message.senderID];
-                            user.tcpConnection = this;
-                            ServerHandler.OnUserConnectedTCP(user);
-                        }
-                    }
-                    else
-                    {
-                        user = new User(message.senderID);
-                        user.tcpConnection = this;
-                        ServerHandler.AddConnection(user);
-                        ServerHandler.OnUserConnectedTCP(user);
-
-                        ServerHandler.defaultRoom.JoinToRoom(user);
-
-                        if (user.info == null)
-                            user.info = ServerHandler.DataBaseBehaivour.GetUserData(message.senderID);
-                        if (user.info == null)
-                            user.info = ServerHandler.DataBaseBehaivour.CreateUser(message.senderID);
-                    }
-
-                    SynchronizableTypes.InvokeTypeActionTCP(type, bytes, message, ServerHandler.clients[message.senderID]);
+                    bytesCount = stream.Read(bytes, 0, bytes.Length);
+                    if (bytesCount < 2)
+                        throw new Exception("null bytes");
                 }
-                else
+                catch
                 {
-                    open = false;
                     if (user != null)
                     {
                         ServerHandler.OnUserDisconnectedTCP(user);
@@ -78,8 +49,58 @@ namespace PGN.General.Connections
                         ServerHandler.RemoveConnection(user);
                     }
                     Close();
-                    break;
+                    return;
                 }
+
+                ushort type;
+                bool transitable;
+                NetData message = NetData.RecoverBytes(bytes, bytesCount, out type, out transitable);
+
+                if (!transitable)
+                {
+                    if (message != null)
+                    {
+
+                        if (ServerHandler.clients.ContainsKey(message.senderID))
+                        {
+                            if (ServerHandler.clients[message.senderID].tcpConnection == null)
+                            {
+                                user = ServerHandler.clients[message.senderID];
+                                user.tcpConnection = this;
+                                ServerHandler.OnUserConnectedTCP(user);
+                            }
+                        }
+                        else
+                        {
+                            user = new User(message.senderID);
+                            user.tcpConnection = this;
+                            ServerHandler.AddConnection(user);
+                            ServerHandler.OnUserConnectedTCP(user);
+
+                            ServerHandler.defaultRoom.JoinToRoom(user);
+
+                            if (user.info == null)
+                                user.info = ServerHandler.DataBaseBehaivour.GetUserData(message.senderID);
+                            if (user.info == null)
+                                user.info = ServerHandler.DataBaseBehaivour.CreateUser(message.senderID);
+                        }
+
+                        SynchronizableTypes.InvokeTypeActionTCP(type, bytes, message, ServerHandler.clients[message.senderID]);
+                    }
+                    else
+                    {
+                        if (user != null)
+                        {
+                            ServerHandler.OnUserDisconnectedTCP(user);
+                            ServerHandler.OnUserDisconnectedUDP(user);
+                            ServerHandler.RemoveConnection(user);
+                        }
+                        Close();
+                        return;
+                    }
+                }
+                else
+                    user.currentRoom.BroadcastMessageTCP(bytes);
             }
             while (stream.DataAvailable);
         }
@@ -87,8 +108,7 @@ namespace PGN.General.Connections
 
         public override void SendMessage(NetData message)
         {
-            byte[] data = NetData.GetBytesData(message);
-            SendMessage(data);
+            SendMessage(message.bytes);
         }
 
         public override void SendMessage(byte[] data)

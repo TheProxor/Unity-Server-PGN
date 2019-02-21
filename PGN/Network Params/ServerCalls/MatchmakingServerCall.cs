@@ -32,16 +32,16 @@ namespace PGN
         public class OnRoomReadyCallback : MatchmakingServerCall
         {
             [ProtoMember(1)]
-            public byte[] opponentData = new byte[0];
+            public DataBase.UserInfo[] userInfos;
 
-            public OnRoomReadyCallback(byte[] opponentData)
+            public OnRoomReadyCallback(DataBase.UserInfo[] userInfos)
             {
-                this.opponentData = opponentData;
+                this.userInfos = userInfos;
             }
 
             public OnRoomReadyCallback()
             {
-                opponentData = new byte[0];
+                
             }
         }
 

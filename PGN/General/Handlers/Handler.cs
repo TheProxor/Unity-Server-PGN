@@ -15,8 +15,7 @@ namespace PGN.General
     {
         public Handler()
         {
-            SynchronizableTypes.Init();
-           
+            SynchronizableTypes.Init();          
         }
 
         public static event Action<string> onLogReceived;

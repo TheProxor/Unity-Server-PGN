@@ -69,7 +69,7 @@ namespace GameCore.Commands
                 }
             }
         }
-
+    
         [Synchronizable, ProtoContract]
         public class FindUser : UserValidateCommand
         {

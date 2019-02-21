@@ -7,7 +7,7 @@ using ProtoBuf;
 namespace PGN.Containers
 {
     [Synchronizable, ProtoContract]
-    internal class DoubleContainer : ISync
+    internal class DoubleContainer : Container
     {
         public DoubleContainer()
         {
@@ -21,5 +21,15 @@ namespace PGN.Containers
 
         [ProtoMember(1)]
         public double value;
+
+        public override object GetValue()
+        {
+            return value;
+        }
+
+        public override void SetValue(object value)
+        {
+            this.value = Convert.ToDouble(value);
+        }
     }
 }

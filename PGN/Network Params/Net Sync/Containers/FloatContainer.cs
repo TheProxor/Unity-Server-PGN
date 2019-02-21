@@ -7,7 +7,7 @@ using ProtoBuf;
 namespace PGN.Containers
 {
     [Synchronizable, ProtoContract]
-    internal class FloatContainer : ISync
+    internal class FloatContainer : Container
     {
         public FloatContainer()
         {
@@ -21,5 +21,15 @@ namespace PGN.Containers
 
         [ProtoMember(1)]
         public float value;
+
+        public override object GetValue()
+        {
+            return value;
+        }
+
+        public override void SetValue(object value)
+        {
+            this.value = Convert.ToSingle(value);
+        }
     }
 }

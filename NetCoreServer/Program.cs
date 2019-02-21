@@ -47,8 +47,7 @@ namespace SocketServer
 
             Console.WriteLine("Server IP: " + "127.0.0.1");
 
-            SynchronizableTypes.AddType(typeof(string), (object data, string senderID) => { ServerHandler.clients[senderID].currentRoom.BroadcastMessageTCP(new NetData(ServerHandler.clients[senderID].currentRoom.roomFactorKey, false).bytes); });
-            SynchronizableTypes.AddSyncSubType(typeof(GameHandler.PlayerCondition));
+            SynchronizableTypes.EnableTransitNonValidTypes();
 
             server.Start();
 
@@ -69,12 +68,12 @@ namespace SocketServer
                             case "Default":
                                 foreach (User user in users)
                                 {
-                                    user.info.dataAttributes["cubecoins"].value = (int)user.info.dataAttributes["cubecoins"].value + 100;
-                                    user.info.dataAttributes["experience"].value = Convert.ToSingle(user.info.dataAttributes["experience"].value) + Convert.ToSingle(100f / (int)user.info.dataAttributes["level"].value);
-                                    if (Convert.ToSingle(user.info.dataAttributes["experience"].value) >= 100f)
+                                    user.info.dataAttributes["cubecoins"].SetValue((int)user.info.dataAttributes["cubecoins"].GetValue() + 100);
+                                    user.info.dataAttributes["experience"].SetValue((float)user.info.dataAttributes["experience"].GetValue() + 100f / (int)user.info.dataAttributes["level"].GetValue());
+                                    if ((float)user.info.dataAttributes["experience"].GetValue() >= 100f)
                                     {
-                                        user.info.dataAttributes["experience"].value = 0f;
-                                        user.info.dataAttributes["level"].value = (int)user.info.dataAttributes["level"].value + 1;
+                                        user.info.dataAttributes["experience"].SetValue(0f);
+                                        user.info.dataAttributes["level"].SetValue((int)user.info.dataAttributes["level"].GetValue() + 1);
                                     }
                                 }
                                 break;

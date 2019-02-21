@@ -20,6 +20,8 @@ namespace PGN.General
         internal static UdpClient udpListener;
 
         public static Dictionary<string, User> clients { get; private set; } = new Dictionary<string, User>();
+        private static Dictionary<IPEndPoint, UdpConnection> udpConnections = new Dictionary<IPEndPoint, UdpConnection>();
+        private static Dictionary<IPEndPoint, TcpConnection> tcpConnections = new Dictionary<IPEndPoint, TcpConnection>();
 
         public static Dictionary<string, List<Room>> freeRooms { get; private set; } = new Dictionary<string, List<Room>>();
         public static Dictionary<string, Room> rooms { get; private set; } = new Dictionary<string, Room>();
@@ -39,6 +41,7 @@ namespace PGN.General
 
         public static event Action<bool, List<RoomFactor>, List<User>> onRoomReleased;
 
+
         public ServerHandler(string databasePath, string attributesPath, DataBase.DataBaseBehaivour dataBaseBehaivour) : base()
         {
             DataBaseBehaivour = dataBaseBehaivour;
@@ -47,8 +50,7 @@ namespace PGN.General
             SynchronizableTypes.AddType(typeof(ValidateServerCall.Refresh),
                 (object data, string id) =>
                 {
-                    byte[] bytes = clients[id].info.bytes;
-                    SendMessageViaTCP(new NetData(new ValidateServerCall.Refresh(bytes), false), clients[id]);
+                    SendMessageViaTCP(new NetData(new ValidateServerCall.Refresh(clients[id].info), false), clients[id]);
                 }
                 );
 
@@ -83,6 +85,8 @@ namespace PGN.General
                 }
               );
 
+            SynchronizableTypes.AddSyncSubType(typeof(DataBase.UserInfo));
+            SynchronizableTypes.AddSyncSubType(typeof(DataBase.DataProperty));
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.OnRoomReadyCallback));
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.OnPlayerLeaveCallback));
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.OnRoomRealeasedCallback));
@@ -125,11 +129,22 @@ namespace PGN.General
         {
             lock (clients)
             {
-                if (clients.ContainsKey(client.ID))
+                lock (tcpConnections)
                 {
-                    DataBaseBehaivour.SaveUserData(client);
-                    client.currentRoom.LeaveFromRoom(client);
-                    clients.Remove(client.ID);
+                    lock (udpConnections)
+                    {
+
+                        if (clients.ContainsKey(client.ID))
+                        {
+                            DataBaseBehaivour.SaveUserData(client);
+                            if (tcpConnections.ContainsKey(user.tcpConnection.adress))
+                                tcpConnections.Remove(user.tcpConnection.adress);
+                            if (udpConnections.ContainsKey(user.udpConnection.adress))
+                                udpConnections.Remove(user.udpConnection.adress);
+                            client.currentRoom.LeaveFromRoom(client);
+                            clients.Remove(client.ID);
+                        }
+                    }
                 }
             }
         }
@@ -255,6 +270,7 @@ namespace PGN.General
         {
             ListenTCP();
             TcpConnection tcpConnection = new TcpConnection(tcpClient, tcpClient.Client.RemoteEndPoint as IPEndPoint);
+            tcpConnections.Add(tcpClient.Client.RemoteEndPoint as IPEndPoint, tcpConnection);
             tcpConnection.Recieve();
         }
 
@@ -268,46 +284,62 @@ namespace PGN.General
             try
             {
                 bytes = udpClient.EndReceive(ar, ref iPEndPoint);
+                if(bytes.Length < 2)
+                {
+                    throw new Exception("null bytes");
+                }
             }
-            catch { }
+            catch
+            {
+                return;
+            }
             finally
             {
                 if (bytes != null)
                 {
                     ushort type;
-                    NetData message = NetData.RecoverBytes(bytes, bytes.Length, out type);
-                    if (message != null)
+                    bool transitable;
+                    NetData message = NetData.RecoverBytes(bytes, bytes.Length, out type, out transitable);
+                    if (!transitable)
                     {
-                        User udpUser = null;
-
-                        if (clients.ContainsKey(message.senderID))
+                        if (message != null)
                         {
-                            if (clients[message.senderID].udpConnection == null)
+                            User udpUser = null;
+
+                            if (clients.ContainsKey(message.senderID))
                             {
-                                OnUserConnectedUDP(clients[message.senderID]);
-                                UdpConnection udpConnection = new UdpConnection(iPEndPoint);
-                                udpConnection.user = clients[message.senderID];
-                                clients[message.senderID].udpConnection = udpConnection;
+                                if (clients[message.senderID].udpConnection == null)
+                                {
+                                    OnUserConnectedUDP(clients[message.senderID]);
+                                    UdpConnection udpConnection = new UdpConnection(iPEndPoint);
+                                    udpConnection.user = clients[message.senderID];
+                                    clients[message.senderID].udpConnection = udpConnection;
+                                    udpConnections.Add(iPEndPoint, udpConnection);
+                                }
+                                user = clients[message.senderID];
                             }
-                            user = clients[message.senderID];
+                            else
+                            {
+                                udpUser = new User(message.senderID);
+                                udpUser.udpConnection = new UdpConnection(iPEndPoint);
+                                udpConnections.Add(iPEndPoint, udpUser.udpConnection);
+
+                                AddConnection(udpUser);
+
+                                defaultRoom.JoinToRoom(udpUser);
+
+                                OnUserConnectedUDP(udpUser);
+
+                                if (user.info == null)
+                                    user.info = DataBaseBehaivour.GetUserData(message.senderID);
+                                if (user.info == null)
+                                    user.info = DataBaseBehaivour.CreateUser(message.senderID);
+                            }
+                            SynchronizableTypes.InvokeTypeActionUDP(type, bytes, message, clients[message.senderID]);
                         }
-                        else
-                        {
-                            udpUser = new User(message.senderID);
-                            udpUser.udpConnection = new UdpConnection(iPEndPoint);
-                            AddConnection(udpUser);
-
-                            defaultRoom.JoinToRoom(udpUser);
-
-                            OnUserConnectedUDP(udpUser);
-
-                            if (user.info == null)
-                                user.info = DataBaseBehaivour.GetUserData(message.senderID);
-                            if (user.info == null)
-                                user.info = DataBaseBehaivour.CreateUser(message.senderID);
-                        }
-                        SynchronizableTypes.InvokeTypeActionUDP(type, bytes, message, clients[message.senderID]);
                     }
+                    else
+                        udpConnections[iPEndPoint].user.currentRoom.BroadcastMessageUDP(bytes);
                 }
             }
         }

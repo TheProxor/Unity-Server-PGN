@@ -22,27 +22,59 @@ namespace PGN
 
         internal static Action<object, string>[] tst = new Action<object, string>[ushort.MaxValue];
 
-        public static bool allowNonValidTypes = true;
+        internal static bool allowTransitNonValidTypes = true;
 
         private static RuntimeTypeModel model;
         private static MetaType type;
+
+        public static void EnableTransitNonValidTypes()
+        {
+            allowTransitNonValidTypes = true;
+        }
+
+        public static void DisableTransitNonValidTypes()
+        {
+            allowTransitNonValidTypes = false;
+        }
 
         internal static void Init()
         {
             model = RuntimeTypeModel.Default;
             type = model.Add(typeof(ISync), true);
 
-            AddType(typeof(StringContainer), (object data, string senderID) => { if (typesDictionary.ContainsKey(typeof(string))) typesActions[typesDictionary[typeof(string)]].Invoke((data as StringContainer).value, senderID); });
-            AddType(typeof(IntContainer), (object data, string senderID) => { if (typesDictionary.ContainsKey(typeof(int))) typesActions[typesDictionary[typeof(int)]].Invoke((data as IntContainer).value, senderID); });
-            AddType(typeof(UintContainer), (object data, string senderID) => { if (typesDictionary.ContainsKey(typeof(uint))) typesActions[typesDictionary[typeof(uint)]].Invoke((data as UintContainer).value, senderID); });
-            AddType(typeof(FloatContainer), (object data, string senderID) => { if (typesDictionary.ContainsKey(typeof(float))) typesActions[typesDictionary[typeof(float)]].Invoke((data as FloatContainer).value, senderID); });
-            AddType(typeof(DoubleContainer), (object data, string senderID) => { if (typesDictionary.ContainsKey(typeof(double))) typesActions[typesDictionary[typeof(double)]].Invoke((data as DoubleContainer).value, senderID); });
+            var containerType =  type.AddSubType(6, typeof(Container));
+
+            containerType.AddSubType(1, typeof(StringContainer));
+            typesActions.Add(1, (object data, string senderID) => { if (typesDictionary.ContainsKey(typeof(string))) typesActions[typesDictionary[typeof(string)]].Invoke((data as StringContainer).value, senderID); });
+            typesDictionary.Add(typeof(StringContainer), 1);
+            types.Add(1, typeof(StringContainer));
+
+            containerType.AddSubType(2, typeof(IntContainer));
+            typesActions.Add(2, (object data, string senderID) => { if (typesDictionary.ContainsKey(typeof(int))) typesActions[typesDictionary[typeof(int)]].Invoke((data as IntContainer).value, senderID); });
+            typesDictionary.Add(typeof(IntContainer), 2);
+            types.Add(2, typeof(IntContainer));
+
+            containerType.AddSubType(3, typeof(UintContainer));
+            typesActions.Add(3, (object data, string senderID) => { if (typesDictionary.ContainsKey(typeof(uint))) typesActions[typesDictionary[typeof(uint)]].Invoke((data as UintContainer).value, senderID); });
+            typesDictionary.Add(typeof(UintContainer), 3);
+            types.Add(3, typeof(UintContainer));
+
+            containerType.AddSubType(4, typeof(FloatContainer));
+            typesActions.Add(4, (object data, string senderID) => { if (typesDictionary.ContainsKey(typeof(float))) typesActions[typesDictionary[typeof(float)]].Invoke((data as FloatContainer).value, senderID); });
+            typesDictionary.Add(typeof(FloatContainer), 4);
+            types.Add(4, typeof(FloatContainer));
+
+            containerType.AddSubType(5, typeof(DoubleContainer));
+            typesActions.Add(5, (object data, string senderID) => { if (typesDictionary.ContainsKey(typeof(double))) typesActions[typesDictionary[typeof(double)]].Invoke((data as DoubleContainer).value, senderID); });
+            typesDictionary.Add(typeof(DoubleContainer), 5);
+            types.Add(5, typeof(DoubleContainer));
         }
 
         internal static void InvokeClientAction(byte[] message, int bytesCount)
         {
             ushort type;
             NetData data = NetData.RecoverBytes(message, bytesCount, out type);
+            
             if (data != null)
                 typesActions[type].Invoke(data.data, data.senderID);
         }
@@ -55,8 +87,6 @@ namespace PGN
                     sender.currentRoom.BroadcastMessageTCP(NetData.GetBytesData(data), sender);
                 typesActions[type].Invoke(data.data, data.senderID);
             }
-            else if (allowNonValidTypes && data.broadcast)
-                sender.currentRoom.BroadcastMessageTCP(message, sender);
         }
 
         internal static void InvokeTypeActionUDP(ushort type, byte[] message, NetData data, User sender)
@@ -67,8 +97,6 @@ namespace PGN
                     sender.currentRoom.BroadcastMessageUDP(message, sender);
                 typesActions[type].Invoke(data.data, data.senderID);
             }
-            else if (allowNonValidTypes && data.broadcast)
-                sender.currentRoom.BroadcastMessageUDP(message, sender);
         }
 
         public static void AddType(Type t, Action<object, string> action)

@@ -7,7 +7,7 @@ using ProtoBuf;
 namespace PGN.Containers
 {
     [Synchronizable, ProtoContract]
-    internal class StringContainer : ISync
+    internal class StringContainer : Container
     {
         public StringContainer()
         {
@@ -21,5 +21,15 @@ namespace PGN.Containers
 
         [ProtoMember(1)]
         public string value;
+
+        public override object GetValue()
+        {
+            return value;
+        }
+
+        public override void SetValue(object value)
+        {
+            this.value = value.ToString();
+        }
     }
 }

@@ -6,15 +6,16 @@ using System.Threading.Tasks;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 
+using ProtoBuf;
+
 namespace PGN.DataBase
 {
-    [Serializable]
-    public class UserInfo
+    [Synchronizable, ProtoContract]
+    public class UserInfo : ISync
     {
-        public static uint attributeCount = 0;
-
+        [ProtoMember(1)]
         public string id { get; set; }
-
+        [ProtoMember(2)]
         public Dictionary<string, DataProperty> dataAttributes;
 
         public UserInfo(int capacity)
@@ -23,53 +24,9 @@ namespace PGN.DataBase
             dataAttributes = new Dictionary<string, DataProperty>(capacity);
         }
 
-        private static BinaryFormatter binaryFormatter = new BinaryFormatter();
-
-        public byte[] bytes
+        public UserInfo()
         {
-            get
-            {
-                using (MemoryStream memoryStream = new MemoryStream())
-                {
-                    binaryFormatter.Serialize(memoryStream, this);
-                    return Data.NetData.Compress(memoryStream.GetBuffer(), System.IO.Compression.CompressionLevel.Optimal);
-                }
-            }
-        }
-
-        public static byte[] GetUserInfoArrayBytes(UserInfo[] infos)
-        {
-            using (MemoryStream memoryStream = new MemoryStream())
-            {
-                binaryFormatter.Serialize(memoryStream, infos);
-                return memoryStream.GetBuffer();
-            }
-        }
-
-        public static UserInfo RecoverBytes(byte[] bytes)
-        {
-            try
-            {
-                using (MemoryStream memoryStream = new MemoryStream(Data.NetData.Decompress(bytes)))
-                    return binaryFormatter.Deserialize(memoryStream) as UserInfo;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        public static UserInfo[] RecoverArrayBytes(byte[] bytes)
-        {
-            try
-            {
-                using (MemoryStream memoryStream = new MemoryStream(bytes))
-                    return binaryFormatter.Deserialize(memoryStream) as UserInfo[];
-            }
-            catch
-            {
-                return null;
-            }
+            dataAttributes = new Dictionary<string, DataProperty>();
         }
     }
 }

@@ -71,18 +71,18 @@ namespace PGN.General
         public event Action onRoomReleased;
 
         public ClientHandler() : base()
-        {
+        {       
             SynchronizableTypes.AddType(typeof(ValidateServerCall.Refresh), (object data, string id) => 
             {
                 OnLogReceived("Refreshed");
                 var refresh = data as ValidateServerCall.Refresh;
-                onRefreshed?.Invoke(DataBase.UserInfo.RecoverBytes(refresh.refreshData));
+                onRefreshed?.Invoke(refresh.info);
             });
 
             SynchronizableTypes.AddType(typeof(MatchmakingServerCall.OnRoomReadyCallback), (object data, string id) => 
             {
                 var ready = data as MatchmakingServerCall.OnRoomReadyCallback;
-                onJoinedToFreeRoom?.Invoke(DataBase.UserInfo.RecoverArrayBytes(ready.opponentData));
+                onJoinedToFreeRoom?.Invoke(ready.userInfos);
             });
 
 
@@ -95,6 +95,9 @@ namespace PGN.General
             {
                 onRoomReleased?.Invoke();
             });
+
+            SynchronizableTypes.AddSyncSubType(typeof(DataBase.UserInfo));
+            SynchronizableTypes.AddSyncSubType(typeof(DataBase.DataProperty));
 
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.JoinToFreeRoom));
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.LeaveFromRoom));
@@ -116,7 +119,7 @@ namespace PGN.General
                     udpClient = new UdpClient(new IPEndPoint(localAddressUDP.Address, localAddressUDP.Port + connectTry));
                     tcpClient.BeginConnect(remoteAddressTCP.Address, remoteAddressTCP.Port, ConnectCallbackTCP, tcpClient);
                 }
-                catch 
+                catch(Exception e)
                 {
                     connectTry++;
                     Connect();
@@ -151,23 +154,29 @@ namespace PGN.General
 
         private void ConnectContinue()
         {
-            udpClient.Connect(remoteAddressUDP);
+            try
+            {
+                udpClient.Connect(remoteAddressUDP);
 
-            Thread.Sleep(100);
+                Thread.Sleep(100);
 
-            stream = tcpClient.GetStream();
+                stream = tcpClient.GetStream();
 
-            NetData message = new NetData(0x1B39, user.ID, false);
-            byte[] data = NetData.GetBytesData(message);
+                byte[] data = new NetData(new Containers.IntContainer(0x1B39), user.ID, false).bytes;
 
-            stream.Write(data, 0, data.Length);
-            Thread.Sleep(100);
-            udpClient.Send(data, data.Length);
+                stream.Write(data, 0, data.Length);
+                Thread.Sleep(100);
+                udpClient.Send(data, data.Length);
 
-            onConnectCondition = true;
+                onConnectCondition = true;
 
-            ReceiveMessageTCP();
-            ReceiveMessageUDP();
+                ReceiveMessageTCP();
+                ReceiveMessageUDP();
+            }
+            catch(Exception e)
+            {
+                OnLogReceived(e.Message);
+            }
         }
 
         /// <summary>
@@ -187,7 +196,7 @@ namespace PGN.General
                 {
                     do
                     {
-                        byte[] bytes = new byte[10240];
+                        byte[] bytes = new byte[1024];
                         int bytesCount = stream.Read(bytes, 0, bytes.Length);
                         if (bytesCount > 0)
                         {

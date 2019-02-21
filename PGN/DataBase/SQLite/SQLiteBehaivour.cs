@@ -71,13 +71,13 @@ namespace PGN.DataBase
                         {
                             string name = reader.GetName(i + 1);
                             object value = reader.GetValue(i + 1);
-                            if (datas[i].value is string)
+                            if (datas[i].GetValue() is string)
                                 info.dataAttributes.Add(name, new DataProperty(name, value.ToString()));
-                            else if (datas[i].value is int)
+                            else if (datas[i].GetValue() is int)
                                 info.dataAttributes.Add(name, new DataProperty(name, Convert.ToInt32(value)));
-                            else if (datas[i].value is float)
+                            else if (datas[i].GetValue() is float)
                                 info.dataAttributes.Add(name, new DataProperty(name, Convert.ToSingle(value)));
-                            else if (datas[i].value is double)
+                            else if (datas[i].GetValue() is double)
                                 info.dataAttributes.Add(name, new DataProperty(name, Convert.ToDouble(value)));
                         }
                     }
@@ -108,9 +108,9 @@ namespace PGN.DataBase
         {
             string fields = string.Empty;
             for (int i = 0; i < datas.Count; i++)
-                fields += $",'{datas[i].id}' = '{user.info.dataAttributes[datas[i].id].value}'";
+                fields += $",'{datas[i].id}' = '{user.info.dataAttributes[datas[i].id].GetValue()}'";
 
-            command = new SQLiteCommand($"UPDATE '{dbName}' SET '{datas[0].id}' = '{user.info.dataAttributes[datas[0].id].value}'{fields} WHERE id = '{user.ID}';", connection);
+            command = new SQLiteCommand($"UPDATE '{dbName}' SET '{datas[0].id}' = '{user.info.dataAttributes[datas[0].id].GetValue()}'{fields} WHERE id = '{user.ID}';", connection);
             command.ExecuteNonQuery();
         }
 
@@ -124,8 +124,8 @@ namespace PGN.DataBase
             for (int i = 0; i < datas.Count; i++)
             {
                 fields += $",'{datas[i].id}'";
-                values += $",'{datas[i].value}'";
-                info.dataAttributes.Add(datas[i].id, new DataProperty(datas[i].id, datas[i].value));
+                values += $",'{datas[i].GetValue()}'";
+                info.dataAttributes.Add(datas[i].id, new DataProperty(datas[i].id, datas[i].value.GetValue()));
             }
 
             command = new SQLiteCommand($"INSERT INTO {dbName} ('id'{fields}) VALUES ('{userID}'{values});", connection);

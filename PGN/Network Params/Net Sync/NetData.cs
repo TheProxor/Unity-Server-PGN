@@ -192,6 +192,35 @@ namespace PGN.Data
             }
         }
 
+        public static NetData RecoverBytes(byte[] bytesData, int bytesCount, out ushort type, out bool transitable)
+        {
+            transitable = false;
+            ushort _type = type = BitConverter.ToUInt16(bytesData, 0);
+            if (SynchronizableTypes.TypeExists(type))
+            {
+                byte[] bytes = new byte[bytesCount - 2];
+                for (int i = 0; i < bytesCount - 2; i++)
+                    bytes[i] = bytesData[i + 2];
+
+                object message = null;
+                try
+                {
+                    using (var memoryStream = new MemoryStream(bytes))
+                        Serializer.NonGeneric.TryDeserializeWithLengthPrefix(memoryStream, PrefixStyle.Base128, filed => typeof(NetData), out message);
+                    return message as NetData;
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+            else
+            {
+                transitable = true;
+                return null;
+            }
+        }
+
         public static NetData RecoverBytes(byte[] bytesData, int bytesCount, out ushort type)
         {
             ushort _type = type = BitConverter.ToUInt16(bytesData, 0);
@@ -208,8 +237,9 @@ namespace PGN.Data
                         Serializer.NonGeneric.TryDeserializeWithLengthPrefix(memoryStream, PrefixStyle.Base128, filed => typeof(NetData), out message);
                     return message as NetData;
                 }
-                catch
+                catch(Exception e)
                 {
+                    Handler.OnLogReceived(e.Message);
                     return null;
                 }
             }

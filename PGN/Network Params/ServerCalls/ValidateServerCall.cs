@@ -12,19 +12,18 @@ namespace PGN
         [Synchronizable, ProtoContract]
         public class Refresh : ValidateServerCall
         {
+            [ProtoMember(1)]
+            public DataBase.UserInfo info;
+
             public Refresh()
             {
-                this.refreshData = new byte[0];
+ 
             }
 
-            public Refresh(byte[] refreshData)
+            public Refresh(DataBase.UserInfo info)
             {
-                this.refreshData = refreshData;
+                this.info = info;
             }
-
-            [ProtoMember(1)]
-            public byte[] refreshData = new byte[0];
         }
-
     }
 }
