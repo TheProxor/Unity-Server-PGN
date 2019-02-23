@@ -49,6 +49,8 @@ namespace SocketServer
 
             SynchronizableTypes.EnableTransitNonValidTypes();
 
+            PGN.Runtime.ScriptsCompiler.TestCompile();
+
             server.Start();
 
             Console.ReadLine();
