@@ -20,8 +20,8 @@ namespace PGN.General
         internal static UdpClient udpListener;
 
         public static Dictionary<string, User> clients { get; private set; } = new Dictionary<string, User>();
-        private static Dictionary<IPEndPoint, UdpConnection> udpConnections = new Dictionary<IPEndPoint, UdpConnection>();
-        private static Dictionary<IPEndPoint, TcpConnection> tcpConnections = new Dictionary<IPEndPoint, TcpConnection>();
+        internal static Dictionary<IPEndPoint, UdpConnection> udpConnections = new Dictionary<IPEndPoint, UdpConnection>();
+        internal static Dictionary<IPEndPoint, TcpConnection> tcpConnections = new Dictionary<IPEndPoint, TcpConnection>();
 
         public static Dictionary<string, List<Room>> freeRooms { get; private set; } = new Dictionary<string, List<Room>>();
         public static Dictionary<string, Room> rooms { get; private set; } = new Dictionary<string, Room>();
@@ -278,70 +278,7 @@ namespace PGN.General
         internal void ReceiveCallback(IAsyncResult ar)
         {
             ListenUDP();
-            IPEndPoint iPEndPoint = new IPEndPoint(IPAddress.Any, 8001);
-            UdpClient udpClient = (ar.AsyncState as UdpClient);
-            byte[] bytes = null;
-            try
-            {
-                bytes = udpClient.EndReceive(ar, ref iPEndPoint);
-                if(bytes.Length < 2)
-                {
-                    throw new Exception("null bytes");
-                }
-            }
-            catch
-            {
-                return;
-            }
-            finally
-            {
-                if (bytes != null)
-                {
-                    ushort type;
-                    bool transitable;
-                    NetData message = NetData.RecoverBytes(bytes, bytes.Length, out type, out transitable);
-                    if (!transitable)
-                    {
-                        if (message != null)
-                        {
-                            User udpUser = null;
-
-                            if (clients.ContainsKey(message.senderID))
-                            {
-                                if (clients[message.senderID].udpConnection == null)
-                                {
-                                    OnUserConnectedUDP(clients[message.senderID]);
-                                    UdpConnection udpConnection = new UdpConnection(iPEndPoint);
-                                    udpConnection.user = clients[message.senderID];
-                                    clients[message.senderID].udpConnection = udpConnection;
-                                    udpConnections.Add(iPEndPoint, udpConnection);
-                                }
-                                user = clients[message.senderID];
-                            }
-                            else
-                            {
-                                udpUser = new User(message.senderID);
-                                udpUser.udpConnection = new UdpConnection(iPEndPoint);
-                                udpConnections.Add(iPEndPoint, udpUser.udpConnection);
-
-                                AddConnection(udpUser);
-
-                                defaultRoom.JoinToRoom(udpUser);
-
-                                OnUserConnectedUDP(udpUser);
-
-                                if (user.info == null)
-                                    user.info = DataBaseBehaivour.GetUserData(message.senderID);
-                                if (user.info == null)
-                                    user.info = DataBaseBehaivour.CreateUser(message.senderID);
-                            }
-                            SynchronizableTypes.InvokeTypeActionUDP(type, bytes, message, clients[message.senderID]);
-                        }
-                    }
-                    else
-                        udpConnections[iPEndPoint].user.currentRoom.BroadcastMessageUDP(bytes);
-                }
-            }
+            UdpConnection.Recieve(udpListener, ar);
         }
 
         public void BroadcastMessageTCP(byte[] data, User sender)
