@@ -12,34 +12,68 @@ namespace PGN
     public class MatchmakingServerCall : IServerCall
     {
         [Synchronizable, ProtoContract]
-        public class JoinToFreeRoom : MatchmakingServerCall
+        public class JoinToMatch : MatchmakingServerCall
         {
             [ProtoMember(1)]
             public RoomFactor[] roomFactors;
 
-            public JoinToFreeRoom(params RoomFactor[] roomFactors)
+            public JoinToMatch(params RoomFactor[] roomFactors)
             {
                 this.roomFactors = roomFactors;
             }
 
-            public JoinToFreeRoom()
+            public JoinToMatch()
             {
 
             }
         }
 
         [Synchronizable, ProtoContract]
-        public class OnRoomReadyCallback : MatchmakingServerCall
+        public class JoinToLobby : MatchmakingServerCall
+        {
+            [ProtoMember(1)]
+            public string id;
+
+            public JoinToLobby(string id)
+            {
+                this.id = id;
+            }
+
+            public JoinToLobby()
+            {
+
+            }
+        }
+
+        [Synchronizable, ProtoContract]
+        public class OnJoinedToRoomCallback : MatchmakingServerCall
+        {
+            [ProtoMember(1)]
+            public string[] ids;
+
+            public OnJoinedToRoomCallback(string[] ids)
+            {
+                this.ids = ids;
+            }
+
+            public OnJoinedToRoomCallback()
+            {
+
+            }
+        }
+
+        [Synchronizable, ProtoContract]
+        public class OnMatchReadyCallback : MatchmakingServerCall
         {
             [ProtoMember(1)]
             public DataBase.UserInfo[] userInfos;
 
-            public OnRoomReadyCallback(DataBase.UserInfo[] userInfos)
+            public OnMatchReadyCallback(DataBase.UserInfo[] userInfos)
             {
                 this.userInfos = userInfos;
             }
 
-            public OnRoomReadyCallback()
+            public OnMatchReadyCallback()
             {
                 
             }
@@ -73,17 +107,20 @@ namespace PGN
         }
 
         [Synchronizable, ProtoContract]
-        internal class CreateRoom : MatchmakingServerCall
+        internal class CreateLobby : MatchmakingServerCall
         {
             [ProtoMember(1)]
             public RoomFactor[] roomFactors;
+            [ProtoMember(2)]
+            public string name;
 
-            public CreateRoom(params RoomFactor[] roomFactors)
+            public CreateLobby(string name, params RoomFactor[] roomFactors)
             {
                 this.roomFactors = roomFactors;
+                this.name = name;
             }
 
-            public CreateRoom()
+            public CreateLobby()
             {
 
             }
@@ -99,54 +136,26 @@ namespace PGN
         }
 
         [Synchronizable, ProtoContract]
-        internal class JoinToRoom : MatchmakingServerCall
+        internal class GetLobbysList : MatchmakingServerCall
         {
-            [ProtoMember(1)]
-            public string factorKey;
-            [ProtoMember(2)]
-            public string id;
-
-            public JoinToRoom(string factorKey, string id)
-            {
-                this.factorKey = factorKey;
-                this.id = id;
-            }
-
-            public JoinToRoom()
+            public GetLobbysList()
             {
 
             }
         }
 
         [Synchronizable, ProtoContract]
-        internal class GetRoomsList : MatchmakingServerCall
+        internal class OnGetLobbysListCallback : MatchmakingServerCall
         {
             [ProtoMember(1)]
-            public RoomFactor[] roomFactors;
+            public List<Lobby> lobbys;
 
-            public GetRoomsList(params RoomFactor[] roomFactors)
+            public OnGetLobbysListCallback(List<Lobby> lobbys)
             {
-                this.roomFactors = roomFactors;
+                this.lobbys = lobbys;
             }
 
-            public GetRoomsList()
-            {
-
-            }
-        }
-
-        [Synchronizable, ProtoContract]
-        internal class FreeRoomsListCallback : MatchmakingServerCall
-        {
-            [ProtoMember(1)]
-            public string roomsData;
-
-            public FreeRoomsListCallback(string roomsData)
-            {
-                this.roomsData = roomsData;
-            }
-
-            public FreeRoomsListCallback()
+            public OnGetLobbysListCallback()
             {
 
             }

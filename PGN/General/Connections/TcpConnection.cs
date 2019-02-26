@@ -77,7 +77,7 @@ namespace PGN.General.Connections
                             ServerHandler.AddConnection(user);
                             ServerHandler.OnUserConnectedTCP(user);
 
-                            ServerHandler.defaultRoom.JoinToRoom(user);
+                            Matchmaking.DefaultRoom.instance.JoinToRoom(user);
 
                             if (user.info == null)
                                 user.info = ServerHandler.DataBaseBehaivour.GetUserData(message.senderID);

@@ -65,8 +65,9 @@ namespace PGN.General
         private static Queue<PhantomMessage> messages = new Queue<PhantomMessage>();
 
         public event Action<DataBase.UserInfo> onRefreshed;
-        public event Action<DataBase.UserInfo[]> onJoinedToFreeRoom;
-
+        public event Action<DataBase.UserInfo[]> onMatchReady;
+        public event Action<string[]> onJoinedToRoom;
+        public event Action<List<Lobby>> onGetLobbysList;
         public event Action<string> onUserLeaveRoom;
         public event Action onRoomReleased;
 
@@ -79,12 +80,23 @@ namespace PGN.General
                 onRefreshed?.Invoke(refresh.info);
             });
 
-            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.OnRoomReadyCallback), (object data, string id) => 
+            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.OnJoinedToRoomCallback), (object data, string id) =>
             {
-                var ready = data as MatchmakingServerCall.OnRoomReadyCallback;
-                onJoinedToFreeRoom?.Invoke(ready.userInfos);
+                var joined = data as MatchmakingServerCall.OnJoinedToRoomCallback;
+                onJoinedToRoom?.Invoke(joined.ids);
             });
 
+            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.OnMatchReadyCallback), (object data, string id) => 
+            {
+                var ready = data as MatchmakingServerCall.OnMatchReadyCallback;
+                onMatchReady.Invoke(ready.userInfos);
+            });
+
+            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.OnGetLobbysListCallback), (object data, string id) =>
+            {
+                var lobbysGet = data as MatchmakingServerCall.OnGetLobbysListCallback;
+                onGetLobbysList?.Invoke(lobbysGet.lobbys);
+            });
 
             SynchronizableTypes.AddType(typeof(MatchmakingServerCall.OnPlayerLeaveCallback), (object data, string id) =>
             {
@@ -99,7 +111,9 @@ namespace PGN.General
             SynchronizableTypes.AddSyncSubType(typeof(DataBase.UserInfo));
             SynchronizableTypes.AddSyncSubType(typeof(DataBase.DataProperty));
 
-            SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.JoinToFreeRoom));
+            SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.GetLobbysList));
+            SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.CreateLobby));
+            SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.JoinToLobby));
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.LeaveFromRoom));
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.ReleaseRoom));
         }
@@ -319,7 +333,7 @@ namespace PGN.General
             onDisconnectCondition = true;
         }
 
-       
+        #region ServerCalls 
         public void Refresh()
         {
             SendMessageTCP(new NetData(new ValidateServerCall.Refresh(), false));
@@ -327,20 +341,35 @@ namespace PGN.General
         
         public void JoinToFreeRoom(params Matchmaking.RoomFactor[] roomFactors)
         {
-            SendMessageTCP(new NetData(new MatchmakingServerCall.JoinToFreeRoom(roomFactors), false));
+            SendMessageTCP(new NetData(new MatchmakingServerCall.JoinToMatch(roomFactors), false));
         }
-
 
         public void LeaveFromRoom()
         {
             SendMessageTCP(new NetData(new MatchmakingServerCall.LeaveFromRoom(), false));
         }
-
-        
+       
         public void ReleaseRoom()
         {
             SendMessageTCP(new NetData(new MatchmakingServerCall.ReleaseRoom(), false));
         }
+
+        public void GetLobbyList()
+        {
+            SendMessageTCP(new NetData(new MatchmakingServerCall.GetLobbysList(), false));
+        }
+
+        public void CreateLobby(string name, params RoomFactor[] roomFactors)
+        {
+            SendMessageTCP(new NetData(new MatchmakingServerCall.CreateLobby(name, roomFactors), false));
+        }
+
+        public void JoinToLobby(string lobbyID)
+        {
+            SendMessageTCP(new NetData(new MatchmakingServerCall.JoinToLobby(lobbyID), false));
+        }
+
+        #endregion
 
         /// <summary>
         /// Handle recieved messages

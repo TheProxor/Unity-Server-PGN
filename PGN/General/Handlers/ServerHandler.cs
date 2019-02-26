@@ -23,23 +23,16 @@ namespace PGN.General
         internal static Dictionary<IPEndPoint, UdpConnection> udpConnections = new Dictionary<IPEndPoint, UdpConnection>();
         internal static Dictionary<IPEndPoint, TcpConnection> tcpConnections = new Dictionary<IPEndPoint, TcpConnection>();
 
-        public static Dictionary<string, List<Room>> freeRooms { get; private set; } = new Dictionary<string, List<Room>>();
-        public static Dictionary<string, Room> rooms { get; private set; } = new Dictionary<string, Room>();
-
         public static event Action<User> onUserConnectedTCP;
         public static event Action<User> onUserDisconnectedTCP;
 
         public static event Action<User> onUserConnectedUDP;
         public static event Action<User> onUserDisconnectedUDP;
 
-        internal static Room defaultRoom;
-
         private static TaskFactory taskFactoryTCP = new TaskFactory();
         private static TaskFactory taskFactoryUDP = new TaskFactory();
 
         internal static DataBase.DataBaseBehaivour DataBaseBehaivour;
-
-        public static event Action<bool, List<RoomFactor>, List<User>> onRoomReleased;
 
 
         public ServerHandler(string databasePath, string attributesPath, DataBase.DataBaseBehaivour dataBaseBehaivour) : base()
@@ -50,50 +43,17 @@ namespace PGN.General
             SynchronizableTypes.AddType(typeof(ValidateServerCall.Refresh),
                 (object data, string id) =>
                 {
-                    SendMessageViaTCP(new NetData(new ValidateServerCall.Refresh(clients[id].info), false), clients[id]);
+                    ValidateServerCall.Refresh refresh = data as ValidateServerCall.Refresh;
+                    if (refresh.info == null)
+                        SendMessageViaTCP(new NetData(new ValidateServerCall.Refresh(clients[id].info), false), clients[id]);
+                    else
+                        clients[id].info = refresh.info;
                 }
                 );
 
-            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.CreateRoom), 
-                (object data, string id) =>
-                {
-                    MatchmakingServerCall.CreateRoom createRoom = data as MatchmakingServerCall.CreateRoom;
-                    CreateRoom(clients[id], createRoom.roomFactors);
-                }
-                );
-
-            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.JoinToFreeRoom),
-                  (object data, string id) =>
-                  {
-                      MatchmakingServerCall.JoinToFreeRoom joinToFreeRoom = data as MatchmakingServerCall.JoinToFreeRoom;
-                      JoinToFreeRoom(clients[id], joinToFreeRoom.roomFactors);
-                  }
-                );
-
-            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.LeaveFromRoom),
-                  (object data, string id) =>
-                  {
-                      clients[id].currentRoom.LeaveFromRoom(clients[id]);
-                      defaultRoom.JoinToRoom(clients[id]);
-                  }
-                );
-
-            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.ReleaseRoom),
-                (object data, string id) =>
-                {
-                    clients[id].currentRoom.ReleaseRoom();
-                }
-              );
 
             SynchronizableTypes.AddSyncSubType(typeof(DataBase.UserInfo));
             SynchronizableTypes.AddSyncSubType(typeof(DataBase.DataProperty));
-            SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.OnRoomReadyCallback));
-            SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.OnPlayerLeaveCallback));
-            SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.OnRoomRealeasedCallback));
-            //  SynchronizableTypes.AddType(typeof(MatchmakingServerCall.JoinToRoom), 7, null);
-            //  
-            //  SynchronizableTypes.AddType(typeof(MatchmakingServerCall.GetRoomsList), 9, null);
-
         }
 
         internal static void OnUserConnectedTCP(User user)
@@ -133,7 +93,6 @@ namespace PGN.General
                 {
                     lock (udpConnections)
                     {
-
                         if (clients.ContainsKey(client.ID))
                         {
                             DataBaseBehaivour.SaveUserData(client);
@@ -166,90 +125,8 @@ namespace PGN.General
             tcpListener.Start();
             OnLogReceived("Server was created.");
 
-            defaultRoom = new Room("defaultRoomType");
-            defaultRoom.SetAsDefault();
-            freeRooms.Add("defaultRoomType", new List<Room>(1));
-            freeRooms["defaultRoomType"].Add(defaultRoom);
-
             ListenTCP();
             ListenUDP();
-        }
-
-        private void JoinToFreeRoom(User user, params RoomFactor[] roomFactors)
-        {
-            user.currentRoom.LeaveFromRoom(user);
-
-            string key = string.Empty;
-            RoomFactor.RoomCount count = null;
-            RoomFactor.RoomMode mode = null;
-            RoomFactor.RoomMap map = null;
-
-            foreach (RoomFactor factor in roomFactors)
-            {
-                if (factor is RoomFactor.RoomCount)
-                    count = factor as RoomFactor.RoomCount;
-                else if (factor is RoomFactor.RoomMode)
-                    mode = factor as RoomFactor.RoomMode;
-                else if (factor is RoomFactor.RoomMap)
-                    map = factor as RoomFactor.RoomMap;
-                key += factor.GetFactorUssage();
-            }
-
-            if (freeRooms.ContainsKey(key))
-            {
-                if (freeRooms[key].Count > 0)
-                    freeRooms[key][0].JoinToRoom(user);
-                else
-                    CreateRoom(user, key, count, mode, map, freeRooms[key]);
-            }
-            else
-                CreateRoom(user, key, count, mode, map);
-        }
-
-        private void CreateRoom(User user, string roomFactorsKey, RoomFactor.RoomCount count, RoomFactor.RoomMode mode, RoomFactor.RoomMap map,  List<Room> rooms)
-        {
-            Room room = new Room(count, mode, map, roomFactorsKey);
-            room.JoinToRoom(user);
-            rooms.Add(room);
-        }
-
-        private void CreateRoom(User user, string roomFactorsKey, RoomFactor.RoomCount count, RoomFactor.RoomMode mode, RoomFactor.RoomMap map)
-        {
-            Room room = new Room(count, mode, map, roomFactorsKey);
-            room.JoinToRoom(user);
-            List<Room> rooms = new List<Room>();
-            rooms.Add(room);
-            freeRooms.Add(roomFactorsKey, rooms);
-        }
-
-        private void CreateRoom(User user, params RoomFactor[] roomFactors)
-        {
-            string key = string.Empty;
-            RoomFactor.RoomCount count = null;
-            RoomFactor.RoomMode mode = null;
-            RoomFactor.RoomMap map = null;
-
-            foreach (RoomFactor factor in roomFactors)
-            {
-                if (factor is RoomFactor.RoomCount)
-                    count = factor as RoomFactor.RoomCount;
-                else if (factor is RoomFactor.RoomMode)
-                    mode = factor as RoomFactor.RoomMode;
-                else if (factor is RoomFactor.RoomMap)
-                    map = factor as RoomFactor.RoomMap;
-                key += factor.GetFactorUssage();
-            }
-
-            Room room = new Room(count, mode, map, key);
-            room.JoinToRoom(user);
-            List<Room> rooms = new List<Room>();
-            rooms.Add(room);
-            freeRooms.Add(key, rooms);
-        }
-
-        internal static void ReleaseRoom(bool visable, List<RoomFactor> roomFactors, List<User> users)
-        {
-            onRoomReleased?.Invoke(visable, roomFactors, users);
         }
 
         private void ListenTCP()

@@ -82,7 +82,7 @@ namespace PGN.General.Connections
 
                                 ServerHandler.AddConnection(udpUser);
 
-                                ServerHandler.defaultRoom.JoinToRoom(udpUser);
+                                Matchmaking.DefaultRoom.instance.JoinToRoom(udpUser);
 
                                 ServerHandler.OnUserConnectedUDP(udpUser);
 

@@ -8,36 +8,33 @@ using PGN.Data;
 using PGN.General;
 using PGN.General.Connections;
 
+using ProtoBuf;
+
 namespace PGN.Matchmaking
 {
-    public class Room
+    [Synchronizable, ProtoContract]
+    public class Room : ISync
     {
-        public static Room defaultRoom;
-
+        [ProtoMember(1)]
         public string id;
+        [ProtoMember(2)]
+        public string name = string.Empty;
+        [ProtoMember(3)]
         public string roomFactorKey;
-
+        [ProtoMember(4)]
         public RoomFactor.RoomMode mode;
+        [ProtoMember(5)]
         public RoomFactor.RoomCount count = new RoomFactor.RoomCount(uint.MaxValue);
+        [ProtoMember(6)]
         public RoomFactor.RoomMap map;
 
         public Dictionary<string, User> participants { get; private set; } = new Dictionary<string, User>();
-
-        public bool visable { get; internal set; } = false;
-
-        private bool isDefault;
-
-        public void SetAsDefault()
-        {
-            isDefault = true;
-            defaultRoom = this;
-        }
 
         public Room(string roomFactorKey)
         {
             this.roomFactorKey = roomFactorKey;
             id = Guid.NewGuid().ToString();
-            ServerHandler.rooms.Add(id, this);
+            MatchmakingController.rooms.Add(id, this);
         }
 
         public Room(RoomFactor.RoomCount count, RoomFactor.RoomMode mode, RoomFactor.RoomMap map, string roomFactorKey)
@@ -50,10 +47,25 @@ namespace PGN.Matchmaking
             this.map = map;
             this.mode = mode;
             id = Guid.NewGuid().ToString();
-            ServerHandler.rooms.Add(id, this);
+            MatchmakingController.rooms.Add(id, this);
         }
 
-        public void JoinToRoom(User user)
+        public Room(RoomFactor.RoomCount count, RoomFactor.RoomMode mode, RoomFactor.RoomMap map, string roomFactorKey, string name)
+        {
+            this.roomFactorKey = roomFactorKey;
+            if (count != null)
+                this.count = count;
+            else
+                this.count = new RoomFactor.RoomCount(uint.MaxValue);
+            this.map = map;
+            this.mode = mode;
+            this.name = name;
+            id = Guid.NewGuid().ToString();
+            MatchmakingController.rooms.Add(id, this);
+        }
+
+
+        public virtual void JoinToRoom(User user)
         {
             lock (participants)
             {
@@ -61,62 +73,43 @@ namespace PGN.Matchmaking
                 {
                     participants.Add(user.ID, user);
                     user.currentRoom = this;
-                    if (participants.Count == count.count && !isDefault)
+                    if (participants.Count == count.count)
                     {
-                        ServerHandler.freeRooms[roomFactorKey].Remove(this);
+                        MatchmakingController.matchmakingRooms[roomFactorKey].Remove(this);
                         List<DataBase.UserInfo> userInfos = new List<DataBase.UserInfo>(participants.Count);
                         foreach (string id in participants.Keys)
                             userInfos.Add(participants[id].info);
-                        BroadcastMessageTCP(new NetData(new MatchmakingServerCall.OnRoomReadyCallback(userInfos.ToArray()), false).bytes);
+                        BroadcastMessageTCP(new NetData(new MatchmakingServerCall.OnMatchReadyCallback(userInfos.ToArray()), false).bytes);
                     }
                 }
             }
         }
 
-        public void LeaveFromRoom(User user)
+        public virtual void LeaveFromRoom(User user)
         {
             lock (participants)
             {
                 participants.Remove(user.ID);
-                if (!isDefault)
-                {
-                    user.currentRoom = defaultRoom;
-                    BroadcastMessageTCP(new NetData(new MatchmakingServerCall.OnPlayerLeaveCallback(), user.ID, false).bytes);
-                    if (participants.Count == 1)
-                        ReleaseRoom();
-                    else if (participants.Count == 0)
-                        ServerHandler.freeRooms[roomFactorKey].Add(this);
-                }
+                user.currentRoom = DefaultRoom.instance;
+                BroadcastMessageTCP(new NetData(new MatchmakingServerCall.OnPlayerLeaveCallback(), user.ID, false).bytes);
+                if (participants.Count == 1)
+                    ReleaseRoom();
+                else if (participants.Count == 0)
+                    MatchmakingController.matchmakingRooms[roomFactorKey].Add(this);
             }
         }
 
-        public void ReleaseRoom()
+        public virtual void ReleaseRoom()
         {
             lock (participants)
             {
-                if (!isDefault)
+                foreach (string key in participants.Keys)
                 {
-                    List<RoomFactor> roomFactors = new List<RoomFactor>();
-
-                    if (count != null)
-                        roomFactors.Add(count);
-                    if (mode != null)
-                        roomFactors.Add(mode);
-                    if (map != null)
-                        roomFactors.Add(map);
-
-                    if (roomFactors.Count > 0)
-                        ServerHandler.ReleaseRoom(visable, roomFactors, new List<User>(participants.Values));
-
-                    foreach (string key in participants.Keys)
-                    {
-                        participants[key].tcpConnection.SendMessage(new NetData(new ValidateServerCall.Refresh(participants[key].info), false).bytes);
-                        participants[key].tcpConnection.SendMessage(new NetData(new MatchmakingServerCall.OnRoomRealeasedCallback(), false).bytes);
-                        participants[key].currentRoom = defaultRoom;
-                    }
-                    participants.Clear();
-                    ServerHandler.freeRooms[roomFactorKey].Add(this);
+                    participants[key].tcpConnection.SendMessage(new NetData(new MatchmakingServerCall.OnRoomRealeasedCallback(), false).bytes);
+                    participants[key].currentRoom = DefaultRoom.instance;
                 }
+                participants.Clear();
+                MatchmakingController.matchmakingRooms[roomFactorKey].Add(this);
             }
         }
 

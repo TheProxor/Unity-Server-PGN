@@ -38,8 +38,6 @@ namespace SocketServer
             ServerHandler.onUserConnectedUDP += (User user) => {  Console.WriteLine($"User {user.ID} was connected via UDP"); };
             ServerHandler.onUserDisconnectedUDP += (User user) => {  Console.WriteLine($"User {user.ID} was disconnected via UDP"); };
 
-            ServerHandler.onRoomReleased += ReleaseRoomCallback;
-
             //server.SetLocalAdressTCP("192.168.0.1", 8000);
            // server.SetLocalAdressUDP("192.168.0.1", 8001);
             server.SetLocalAdressTCP("127.0.0.1", 8000);
@@ -53,39 +51,5 @@ namespace SocketServer
 
             Console.ReadLine();
         }
-
-        public static void ReleaseRoomCallback(bool visable, List<PGN.Matchmaking.RoomFactor> roomFactors, List<User> users)
-        {
-            if(!visable)
-            {
-                foreach(PGN.Matchmaking.RoomFactor roomFactor in roomFactors)
-                {
-                    if (roomFactor is PGN.Matchmaking.RoomFactor.RoomMode)
-                    {
-                        var roomMode = roomFactor as PGN.Matchmaking.RoomFactor.RoomMode;
-                        switch (roomMode.mode)
-                        {
-                            case "Default":
-                                foreach (User user in users)
-                                {
-                                    user.info.dataAttributes["cubecoins"].SetValue((int)user.info.dataAttributes["cubecoins"].GetValue() + 100);
-                                    user.info.dataAttributes["experience"].SetValue((float)user.info.dataAttributes["experience"].GetValue() + 100f / (int)user.info.dataAttributes["level"].GetValue());
-                                    if ((float)user.info.dataAttributes["experience"].GetValue() >= 100f)
-                                    {
-                                        user.info.dataAttributes["experience"].SetValue(0f);
-                                        user.info.dataAttributes["level"].SetValue((int)user.info.dataAttributes["level"].GetValue() + 1);
-                                    }
-                                }
-                                break;
-                    }
-                    }
-                }
-            }
-            else
-            {
-
-            }
-        }
-
     }
 }
