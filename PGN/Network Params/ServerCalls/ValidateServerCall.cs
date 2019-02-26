@@ -13,11 +13,11 @@ namespace PGN
         public class Refresh : ValidateServerCall
         {
             [ProtoMember(1)]
-            public DataBase.UserInfo info;
+            public DataBase.UserInfo info = null;
 
             public Refresh()
             {
- 
+                info = null;
             }
 
             public Refresh(DataBase.UserInfo info)

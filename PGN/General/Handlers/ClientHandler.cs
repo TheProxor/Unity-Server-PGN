@@ -111,6 +111,7 @@ namespace PGN.General
             SynchronizableTypes.AddSyncSubType(typeof(DataBase.UserInfo));
             SynchronizableTypes.AddSyncSubType(typeof(DataBase.DataProperty));
 
+            SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.JoinToMatch));
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.GetLobbysList));
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.CreateLobby));
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.JoinToLobby));
@@ -339,7 +340,7 @@ namespace PGN.General
             SendMessageTCP(new NetData(new ValidateServerCall.Refresh(), false));
         }
         
-        public void JoinToFreeRoom(params Matchmaking.RoomFactor[] roomFactors)
+        public void JoinToMatch(params Matchmaking.RoomFactor[] roomFactors)
         {
             SendMessageTCP(new NetData(new MatchmakingServerCall.JoinToMatch(roomFactors), false));
         }

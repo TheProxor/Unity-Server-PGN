@@ -239,7 +239,6 @@ namespace PGN.Data
                 }
                 catch(Exception e)
                 {
-                    Handler.OnLogReceived(e.Message);
                     return null;
                 }
             }

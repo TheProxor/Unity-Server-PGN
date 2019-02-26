@@ -44,7 +44,7 @@ namespace PGN.General
                 (object data, string id) =>
                 {
                     ValidateServerCall.Refresh refresh = data as ValidateServerCall.Refresh;
-                    if (refresh.info == null)
+                    if (refresh.info == null || refresh.info.dataAttributes.Count == 0)
                         SendMessageViaTCP(new NetData(new ValidateServerCall.Refresh(clients[id].info), false), clients[id]);
                     else
                         clients[id].info = refresh.info;
@@ -54,6 +54,8 @@ namespace PGN.General
 
             SynchronizableTypes.AddSyncSubType(typeof(DataBase.UserInfo));
             SynchronizableTypes.AddSyncSubType(typeof(DataBase.DataProperty));
+
+            MatchmakingController.Init();
         }
 
         internal static void OnUserConnectedTCP(User user)
@@ -96,10 +98,10 @@ namespace PGN.General
                         if (clients.ContainsKey(client.ID))
                         {
                             DataBaseBehaivour.SaveUserData(client);
-                            if (tcpConnections.ContainsKey(user.tcpConnection.adress))
-                                tcpConnections.Remove(user.tcpConnection.adress);
-                            if (udpConnections.ContainsKey(user.udpConnection.adress))
-                                udpConnections.Remove(user.udpConnection.adress);
+                            if (tcpConnections.ContainsKey(client.tcpConnection.adress))
+                                tcpConnections.Remove(client.tcpConnection.adress);
+                            if (udpConnections.ContainsKey(client.udpConnection.adress))
+                                udpConnections.Remove(client.udpConnection.adress);
                             client.currentRoom.LeaveFromRoom(client);
                             clients.Remove(client.ID);
                         }
