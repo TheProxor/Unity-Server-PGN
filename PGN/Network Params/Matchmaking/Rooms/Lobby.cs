@@ -31,6 +31,16 @@ namespace PGN.Matchmaking
             base.JoinToRoom(user);
         }
 
+        public override void DestroyRoom()
+        {
+            base.DestroyRoom();
+        }
+
+        public override void StartRoom()
+        {
+            base.StartRoom();
+        }
+
         public override void LeaveFromRoom(User user)
         {
             base.LeaveFromRoom(user);

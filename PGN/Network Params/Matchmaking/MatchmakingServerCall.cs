@@ -62,6 +62,34 @@ namespace PGN
             }
         }
 
+
+        [Synchronizable, ProtoContract]
+        public class StartLobby : MatchmakingServerCall
+        {
+            public StartLobby()
+            {
+
+            }
+        }
+
+        [Synchronizable, ProtoContract]
+        public class DestroyLobby : MatchmakingServerCall
+        {
+            public DestroyLobby()
+            {
+
+            }
+        }
+
+        [Synchronizable, ProtoContract]
+        public class OnLobbyDestoyedCallback : MatchmakingServerCall
+        {
+            public OnLobbyDestoyedCallback()
+            {
+
+            }
+        }
+
         [Synchronizable, ProtoContract]
         public class OnMatchReadyCallback : MatchmakingServerCall
         {

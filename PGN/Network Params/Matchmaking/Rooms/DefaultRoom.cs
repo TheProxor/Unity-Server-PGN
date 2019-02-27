@@ -41,6 +41,16 @@ namespace PGN.Matchmaking
             }
         }
 
+        public override void StartRoom()
+        {
+            return;
+        }
+
+        public override void DestroyRoom()
+        {
+            return;
+        }
+
         public override void LeaveFromRoom(User user)
         {
             lock (participants)

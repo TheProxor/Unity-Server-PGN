@@ -74,13 +74,7 @@ namespace PGN.Matchmaking
                     participants.Add(user.ID, user);
                     user.currentRoom = this;
                     if (participants.Count == count.count)
-                    {
-                        MatchmakingController.matchmakingRooms[roomFactorKey].Remove(this);
-                        List<DataBase.UserInfo> userInfos = new List<DataBase.UserInfo>(participants.Count);
-                        foreach (string id in participants.Keys)
-                            userInfos.Add(participants[id].info);
-                        BroadcastMessageTCP(new NetData(new MatchmakingServerCall.OnMatchReadyCallback(userInfos.ToArray()), false).bytes);
-                    }
+                        StartRoom();
                 }
             }
         }
@@ -99,7 +93,30 @@ namespace PGN.Matchmaking
             }
         }
 
+        public virtual void StartRoom()
+        {
+            MatchmakingController.matchmakingRooms[roomFactorKey].Remove(this);
+            List<DataBase.UserInfo> userInfos = new List<DataBase.UserInfo>(participants.Count);
+            foreach (string id in participants.Keys)
+                userInfos.Add(participants[id].info);
+            BroadcastMessageTCP(new NetData(new MatchmakingServerCall.OnMatchReadyCallback(userInfos.ToArray()), false).bytes);
+        }
+
         public virtual void ReleaseRoom()
+        {
+            lock (participants)
+            {
+                foreach (string key in participants.Keys)
+                {
+                    participants[key].tcpConnection.SendMessage(new NetData(new MatchmakingServerCall.OnRoomRealeasedCallback(), false).bytes);
+                    participants[key].currentRoom = DefaultRoom.instance;
+                }
+                participants.Clear();
+                MatchmakingController.matchmakingRooms[roomFactorKey].Add(this);
+            }
+        }
+
+        public virtual void DestroyRoom()
         {
             lock (participants)
             {

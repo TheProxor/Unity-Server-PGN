@@ -55,6 +55,22 @@ namespace PGN.Matchmaking
                }
              );
 
+            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.StartLobby),
+             (object data, string id) =>
+             {
+                 if(ServerHandler.clients[id].currentRoom is Lobby)
+                    ServerHandler.clients[id].currentRoom.StartRoom();
+             }
+           );
+
+            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.DestroyLobby),
+             (object data, string id) =>
+             {
+                 if (ServerHandler.clients[id].currentRoom is Lobby)
+                     ServerHandler.clients[id].currentRoom.DestroyRoom();
+             }
+           );
+
             SynchronizableTypes.AddType(typeof(MatchmakingServerCall.LeaveFromRoom),
                   (object data, string id) =>
                   {
@@ -74,6 +90,7 @@ namespace PGN.Matchmaking
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.OnJoinedToRoomCallback));
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.OnGetLobbysListCallback));
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.OnRoomRealeasedCallback));
+            SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.OnLobbyDestoyedCallback));
         }
 
         private static void JoinToMatch(User user, params RoomFactor[] roomFactors)
@@ -142,6 +159,7 @@ namespace PGN.Matchmaking
                 lobbysList.AddRange(lobbys[key]);
             return lobbysList;
         }
+
 
         private static void GetFactorKey(out string key, out RoomFactor.RoomCount count, out RoomFactor.RoomMode mode, out RoomFactor.RoomMap map, RoomFactor[] roomFactors)
         {

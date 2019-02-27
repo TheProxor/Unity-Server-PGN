@@ -70,6 +70,7 @@ namespace PGN.General
         public event Action<List<Lobby>> onGetLobbysList;
         public event Action<string> onUserLeaveRoom;
         public event Action onRoomReleased;
+        public event Action onLobbyDestroyed;
 
         public ClientHandler() : base()
         {       
@@ -108,6 +109,11 @@ namespace PGN.General
                 onRoomReleased?.Invoke();
             });
 
+            SynchronizableTypes.AddType(typeof(MatchmakingServerCall.OnLobbyDestoyedCallback), (object data, string id) =>
+            {
+                onLobbyDestroyed?.Invoke();
+            });
+
             SynchronizableTypes.AddSyncSubType(typeof(DataBase.UserInfo));
             SynchronizableTypes.AddSyncSubType(typeof(DataBase.DataProperty));
 
@@ -117,6 +123,8 @@ namespace PGN.General
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.JoinToLobby));
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.LeaveFromRoom));
             SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.ReleaseRoom));
+            SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.StartLobby));
+            SynchronizableTypes.AddSyncSubType(typeof(MatchmakingServerCall.DestroyLobby));
         }
 
         /// <summary>
