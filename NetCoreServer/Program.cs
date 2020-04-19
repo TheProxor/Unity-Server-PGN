@@ -14,6 +14,11 @@ using PGN.General;
 using GameCore;
 using GameCore.Commands;
 
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Text;
+using System.Runtime.CompilerServices;
+
 namespace SocketServer
 {
     internal class Program
@@ -50,6 +55,7 @@ namespace SocketServer
             server.Start();
 
             Console.ReadLine();
+
         }
     }
 }
